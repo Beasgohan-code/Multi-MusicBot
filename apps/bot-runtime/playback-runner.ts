@@ -52,8 +52,11 @@ export class PlaybackRunner {
  stop():void{this.stopping=true;this.cancel?.();}
  async recover():Promise<void>{
   if(this.running)throw new Error('RUNNER_BUSY');
-  const s=await this.queue.read();
-  await this.queue.apply(s.revision,{type:'recover'});
+  this.running=true;
+  try{
+   const s=await this.queue.read();
+   await this.queue.apply(s.revision,{type:'recover'});
+  }finally{this.running=false;}
   // Metadata recovery is not cleanup evidence. Never clear a blocked runner here;
   // ownership reconciliation must independently prove cleanup before replacement.
  }
@@ -68,6 +71,16 @@ export class PlaybackRunner {
   let superseded:'skipped'|'interrupted'|undefined;
   let pendingLeaseRenewal:Promise<{generation:number}>|undefined,renewalFailed=false;
   let shutdownWork:Promise<void>|undefined;
+  let mutationFailed=false;
+  const pendingMutations=new Set<Promise<unknown>>();
+  const mutation=async<T>(work:Promise<T>):Promise<T>=>{
+   pendingMutations.add(work);
+   // Observe both outcomes without creating a detached rejecting promise.
+   void work.then(()=>pendingMutations.delete(work),()=>pendingMutations.delete(work));
+   try{return await this.bounded(work);}
+   catch(error){mutationFailed=true;this.blocked=true;throw error;}
+  };
+  const drainMutations=async()=>{await Promise.allSettled([...pendingMutations]);};
   let state=await this.queue.read().catch(e=>{this.running=false;throw e;});
   const sessionId=randomUUID();
   const record=async(type:string)=>this.bounded(this.audit({type,botId:state.botId,chatId:state.chatId,sessionId,generation:generation??0}));
@@ -95,7 +108,7 @@ export class PlaybackRunner {
    }
    await record('assistant_acquired');
    source={sessionId,generation,requestId:randomUUID()};
-   state=await this.bounded(this.queue.apply(state.revision,{type:'begin',source}));
+   state=await mutation(this.queue.apply(state.revision,{type:'begin',source}));
    const validForMs=Math.floor(o.leaseTtlMs-(performance.now()-acquiredAt)-o.operationTimeoutMs);
    if(validForMs<100)throw new Error('LEASE_BUDGET_EXHAUSTED');
    if(cancelled)throw new Error('RUNNER_STOPPED');
@@ -112,7 +125,7 @@ export class PlaybackRunner {
    if(started.eventType!=='playback_started')throw new Error('PLAYBACK_START_FAILED');
    if(cancelled)throw new Error('RUNNER_STOPPED');
    nativeRevision=started.sessionRevision;
-   state=await this.bounded(this.queue.apply(state.revision,{type:'confirmed',source}));
+   state=await mutation(this.queue.apply(state.revision,{type:'confirmed',source}));
    await record('playback_started');
    let lastRenewed=performance.now();
    const renew=async()=>{
@@ -126,7 +139,7 @@ export class PlaybackRunner {
       const ack=await this.bounded(request(control));
       if(ack.eventType!==(control==='pause'?'paused':'resumed'))throw new Error('CONTROL_FAILED');
       nativeRevision=ack.sessionRevision;
-      await this.bounded(this.queue.apply(observed.revision,{type:'control-confirmed',source:source!,control}));
+      await mutation(this.queue.apply(observed.revision,{type:'control-confirmed',source:source!,control}));
       await record(control==='pause'?'playback_paused':'playback_resumed');
      }
      if(terminalSettled||performance.now()-lastRenewed<o.renewEveryMs)return;
@@ -150,12 +163,12 @@ export class PlaybackRunner {
    if(timer)clearTimeout(timer);
    if(renewWork)await renewWork;
    // Stop native execution before any queue persistence when DB renewal is uncertain.
-   if(renewalFailed)await shutdown();
-   if(end&&!renewalFailed){completed=end.eventType==='media_ended';await this.bounded(applyNativeEvent(this.queue,end));outcome=completed?'completed':'interrupted';}
+   if(renewalFailed||mutationFailed)await shutdown();
+   if(end&&!renewalFailed&&!mutationFailed){completed=end.eventType==='media_ended';await mutation(applyNativeEvent(this.queue,end));outcome=completed?'completed':'interrupted';}
    else{
     if(superseded)outcome=superseded;
     const latest=await this.bounded(this.queue.read());
-    if(latest.current?.source?.requestId===source.requestId)await this.bounded(this.queue.apply(latest.revision,{type:'disconnected',source}));
+    if(latest.current?.source?.requestId===source.requestId)await mutation(this.queue.apply(latest.revision,{type:'disconnected',source}));
    }
    await record(completed?'playback_completed':'playback_interrupted');
    if(completed)await record('queue_advanced');
@@ -172,14 +185,17 @@ export class PlaybackRunner {
      // Native teardown must precede waiting for a delayed Mongo renewal.
      // Release must follow settlement, even if renewal rejected with an unknown DB outcome.
      if(pendingLeaseRenewal)await pendingLeaseRenewal.catch(()=>{});
+     // Do not release while an earlier queue CAS can still commit. Never replay late writes.
+     await drainMutations();
      // No child was constructed, or native leave + reap was confirmed.
-     await this.bounded(this.leases.releaseAfterCleanup(o.assistantId,o.holderId,generation));
+     await mutation(this.leases.releaseAfterCleanup(o.assistantId,o.holderId,generation));
      await record('assistant_released');
     }
    }catch(error){this.blocked=true;throw error;}
    finally{
     // Even failed teardown cannot let the supervisor finish while Mongo can still mutate ownership.
     if(pendingLeaseRenewal)await pendingLeaseRenewal.catch(()=>{});
+    await drainMutations();
     this.running=false;
    }
   }

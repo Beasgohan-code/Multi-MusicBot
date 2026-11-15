@@ -6,16 +6,17 @@ import { emptyQueue, transition, type Action } from '../../packages/queue/state.
 import type { VoiceRequest } from '../../packages/shared/protocol.js';
 import type { VoiceEvent } from '../../apps/bot-runtime/voice-process.js';
 
-function harness(options: {cleanup?:boolean; renewFails?:boolean; persistFails?:boolean; crash?:boolean; releaseFails?:boolean; completionDelayMs?:number; disconnect?:boolean; cleanupGate?:Promise<void>; acquireGate?:Promise<void>; renewGate?:Promise<void>; onRenew?:()=>void; operationTimeoutMs?:number}={}) {
+function harness(options: {cleanup?:boolean; renewFails?:boolean; persistFails?:boolean; crash?:boolean; releaseFails?:boolean; completionDelayMs?:number; disconnect?:boolean; cleanupGate?:Promise<void>; acquireGate?:Promise<void>; renewGate?:Promise<void>; onRenew?:()=>void; queueGate?:Promise<void>; gatedAction?:Action['type']; releaseGate?:Promise<void>; operationTimeoutMs?:number}={}) {
  let state=emptyQueue('123','-1001');
  for(const id of ['a','b']) state=transition(state,{type:'enqueue',track:{id,title:id,mediaHandle:id}});
  const log:string[]=[]; const releaseBindings:{assistantId:string;holder:string;generation:number}[]=[]; let acquired=false; let generation=0; let lastChild:Child|undefined;
  const queue={async read(){return structuredClone(state);}, async apply(rev:number,a:Action){
   log.push('queue_action:'+a.type);
+  if(options.queueGate&&options.gatedAction===a.type)await options.queueGate;
   if(options.persistFails && (a.type==='ended'||a.type==='disconnected')) throw new Error('DB_DOWN');
   if(rev!==state.revision)throw new Error('STALE_REVISION');state=transition(state,a);return structuredClone(state);
  }};
- const leases={async acquire(){log.push('acquire_requested');if(options.acquireGate)await options.acquireGate;if(acquired)throw new Error('ASSISTANT_BUSY');acquired=true;log.push('acquire');return {generation:++generation};},async renew(){log.push('renew');options.onRenew?.();if(options.renewGate)await options.renewGate;log.push('renew_settled');if(options.renewFails)throw new Error('DB_DOWN');return {generation};},async releaseAfterCleanup(assistantId:string,holder:string,generation:number){releaseBindings.push({assistantId,holder,generation});if(options.releaseFails)throw new Error('DB_DOWN');log.push('release');acquired=false;}};
+ const leases={async acquire(){log.push('acquire_requested');if(options.acquireGate)await options.acquireGate;if(acquired)throw new Error('ASSISTANT_BUSY');acquired=true;log.push('acquire');return {generation:++generation};},async renew(){log.push('renew');options.onRenew?.();if(options.renewGate)await options.renewGate;log.push('renew_settled');if(options.renewFails)throw new Error('DB_DOWN');return {generation};},async releaseAfterCleanup(assistantId:string,holder:string,generation:number){releaseBindings.push({assistantId,holder,generation});if(options.releaseGate)await options.releaseGate;if(options.releaseFails)throw new Error('DB_DOWN');log.push('release');acquired=false;}};
  class Child extends EventEmitter {
   source:VoiceRequest|undefined;
   revision=0;
@@ -270,4 +271,73 @@ test('completion with a timely valid pending renewal still advances exactly once
  assert.equal(await work,'completed');assert.equal((await h.queue.read()).current?.track.id,'b');
  assert.equal(h.log.includes('child_renew'),false);assert.equal(h.acquired,false);
  assert.equal(h.log.filter(x=>x==='queue_action:ended').length,1);
+});
+
+test('late begin settles before lease release without constructing a child',async()=>{
+ let settle!:()=>void;const queueGate=new Promise<void>(resolve=>{settle=resolve;});
+ const h=harness({queueGate,gatedAction:'begin',operationTimeoutMs:20});
+ let done=false;const work=h.runner.runOne();work.then(()=>{done=true;},()=>{done=true;});
+ const rejection=assert.rejects(work,/OPERATION_TIMEOUT/);
+ try{
+  await new Promise(resolve=>setTimeout(resolve,70));assert.equal(done,false);
+  assert.equal(h.child,undefined);assert.equal(h.log.includes('release'),false);
+  await assert.rejects(h.runner.recover(),/RUNNER_BUSY/);
+ }finally{settle();}
+ await rejection;assert.equal(h.acquired,false);assert.equal(h.child,undefined);
+ assert.equal((await h.queue.read()).current?.state,'preparing');
+ await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+});
+test('late completion persistence reaps child but cannot finish holder or release early',async()=>{
+ let settle!:()=>void;const queueGate=new Promise<void>(resolve=>{settle=resolve;});
+ const h=harness({queueGate,gatedAction:'ended',operationTimeoutMs:20});
+ let done=false;const work=h.runner.runOne();work.then(()=>{done=true;},()=>{done=true;});
+ const rejection=assert.rejects(work,/OPERATION_TIMEOUT/);
+ try{
+  await new Promise(resolve=>setTimeout(resolve,70));assert.ok(h.log.includes('reap'));
+  assert.equal(done,false);assert.equal(h.log.includes('release'),false);
+ }finally{settle();}
+ await rejection;assert.equal((await h.queue.read()).current?.track.id,'b');
+ assert.equal(h.log.filter(x=>x==='queue_action:ended').length,1);
+ assert.equal(h.log.includes('audit:playback_completed'),false);
+ await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+});
+test('late release settles without retry and cannot become successful playback',async()=>{
+ let settle!:()=>void;const releaseGate=new Promise<void>(resolve=>{settle=resolve;});
+ const h=harness({releaseGate,operationTimeoutMs:20});
+ let done=false;const work=h.runner.runOne();work.then(()=>{done=true;},()=>{done=true;});
+ const rejection=assert.rejects(work,/OPERATION_TIMEOUT/);
+ try{
+  await new Promise(resolve=>setTimeout(resolve,70));assert.ok(h.log.includes('reap'));
+  assert.equal(done,false);assert.equal(h.acquired,true);
+  await assert.rejects(h.runner.recover(),/RUNNER_BUSY/);
+ }finally{settle();}
+ await rejection;assert.equal(h.releaseBindings.length,1);assert.equal(h.acquired,false);
+ assert.equal(h.log.includes('audit:assistant_released'),false);
+ await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+});
+test('recovery is exclusive while its persisted mutation is outstanding',async()=>{
+ let settle!:()=>void;const queueGate=new Promise<void>(resolve=>{settle=resolve;});
+ const h=harness({queueGate,gatedAction:'recover'});const recovery=h.runner.recover();
+ try{
+  await new Promise(resolve=>setImmediate(resolve));
+  await assert.rejects(h.runner.runOne(),/RUNNER_BUSY/);
+ }finally{settle();}
+ await recovery;assert.equal(h.log.includes('acquire'),false);
+});
+test('late queue rejection is observed and exact lease is released only after settlement',async()=>{
+ let reject!: (error:Error)=>void;const queueGate=new Promise<void>((_,no)=>{reject=no;});
+ const h=harness({queueGate,gatedAction:'begin',operationTimeoutMs:20});
+ const work=h.runner.runOne();const failure=assert.rejects(work,/OPERATION_TIMEOUT/);
+ try{await new Promise(resolve=>setTimeout(resolve,70));assert.equal(h.log.includes('release'),false);}
+ finally{reject(new Error('DB_UNAVAILABLE'));}
+ await failure;assert.equal(h.releaseBindings.length,1);assert.equal(h.child,undefined);
+});
+test('failed native cleanup still retains holder until late queue mutation settles',async()=>{
+ let settle!:()=>void;const queueGate=new Promise<void>(resolve=>{settle=resolve;});
+ const h=harness({queueGate,gatedAction:'ended',cleanup:false,operationTimeoutMs:20});
+ let done=false;const work=h.runner.runOne();work.then(()=>{done=true;},()=>{done=true;});
+ const failure=assert.rejects(work,/CLEANUP_UNCERTAIN/);
+ try{await new Promise(resolve=>setTimeout(resolve,70));assert.equal(done,false);assert.equal(h.acquired,true);}
+ finally{settle();}
+ await failure;assert.equal(h.log.includes('release'),false);
 });

@@ -13,7 +13,7 @@ Inspection: 2026-11-15. Planning only; no packages installed, upstream tests run
 | [Videl0](https://github.com/Beasgohan-code/Videl0) | See VIDEL0_RECONCILIATION.md | Queue/assistant behavior reference; reuse permission unresolved |
 | [Multi-FileStoreBot](https://github.com/abhinai2244/Multi-FileStoreBot) | Earlier inspection, not pinned | Controller/worker lifecycle inspiration; reuse permission unresolved |
 
-Playeon is the owner of the supplied TypeTube repository, not an additional identified player repository. Badmunda05 is an author; ShizuMusic and Richgram are the two concrete projects supplied. No separate Playeon player has been inspected.
+Playeon also has a separately inspected lounge repository; see the pinned review below. Badmunda05 is an author; ShizuMusic and Richgram are two distinct supplied projects.
 
 ## Findings and decisions
 
@@ -34,7 +34,7 @@ Playeon is the owner of the supplied TypeTube repository, not an additional iden
 | Recovery/DJ/queues | Videl0 has inspected queue recovery, acknowledgement rollback and DJ/request concepts | ADAPT as specified in VIDEL0_RECONCILIATION.md | Single queue authority, tenant isolation, explicit restore and stale-event tests |
 | Clone control | FileStore reference uses dynamic clients and owner menus | ADAPT UX/lifecycle, not raw-secret inspection or sleeping moderation bots | Encrypted secrets, one poller/token, quotas, explicit start/stop and deletion |
 
-## Recommended architecture amendment — pending approval
+## Architecture direction
 
 Based on the latest Python-first proposal: TypeScript controller, worker runtimes, moderation and authoritative queues; Python/PyTgCalls voice adapter. Evaluate Wzgram as an isolated MTProto compatibility candidate against a Kurigram baseline; do not promise Wzgram support until measured. Rich presentation remains on the bot-command side, independent of Python voice. TypeTube is an optional Node media-provider adapter behind our own validated Track/Stream contracts. Redis, billing, a web dashboard and advanced widgets are not initial dependencies.
 
@@ -52,4 +52,18 @@ The latest MASTER_ROADMAP.md and ARCHITECTURE.md now adopt Python-first from the
 
 Retain main+worker group management and multi-tenant platform roadmap from PLAN.md. Prioritize verified local-file voice playback, secure controller/worker lifecycle, moderation and core music/recovery. Add source discovery, localization, richer cards and effects after core gates. Channel/video, external downloads, advanced widgets, shared libraries, billing and browser/voice synchronized controls remain separately gated.
 
-Next decision: approve Python-first with Wzgram compatibility evaluation, or retain the documented Node-first spike. No implementation is blocked on adopting every reference library.
+Python-first is adopted; isolated compatibility testing selected Kurigram over incompatible Wzgram. Live Phase 0 acceptance remains pending.
+
+## Playeon lounge inspection — 2026-11-15
+
+Inspected [playeon/playeon](https://github.com/playeon/playeon) at `6ec6097bc7f5db19583618c226a5e4c410b90cee`: LICENSE, README, package manifests, RoomManager/server/roomToken, Telegram auth/join-room/access, room-store/media-engine and queue/progress handlers. No upstream execution or performance verification. This supersedes the earlier statement that no separate Playeon player was inspected.
+
+License is **Attribution and Personal Use License v1.0**, not MIT: personal/noncommercial use, attribution obligations and express written permission for commercial use. Do not port implementation, assets or branding into this hosting product without permission. Generic ideas below require independent implementation.
+
+Observed architecture: TypeScript/mtcute bot with embedded HTTP/WebSocket room server, Next/React/Three browser client, Mongo/Redis and yt-dlp/FFmpeg. RoomManager maintains process-local rooms keyed by group, server timestamps/paused positions and snapshot revisions; browser reconnects with bounded exponential backoff and rejects older revisions. This is a browser lounge, not evidence of our required durable bot+chat queue authority or fenced Python assistant lifecycle.
+
+Adopt later: lightweight 2D lounge first with optional 3D; revisioned server timelines; authenticated preview/join; separate listen/control permissions; real autoplay/buffering/error states; audio-master synchronization with measured drift correction; refetch current queue before paginated actions. Every room/callback must bind bot+chat, actor and current authorization. Retain our Python voice boundary and durable queue authority.
+
+Do not adopt development auth bypasses, query-string bearer tokens, cached privileges during authorization outages, group-only room identity, or random simulated progress percentages. Use fresh fail-closed authorization, short-lived tenant-bound/revocable credentials with secret-safe transport and actual correlated processing stages. README sub-50ms synchronization is unverified: inspected clock offset is a simple server timestamp difference, while master correction thresholds are around 1–1.2 seconds. Define and measure an RTT-aware drift budget before making synchronization claims.
+
+Gate: lounge/auth/realtime implementation follows ownership settlement, durable recovery and real Phase 0 acceptance. No new runtime dependency or third-party implementation was copied in this review.
