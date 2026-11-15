@@ -198,8 +198,13 @@ This delivery also checkpoints the previously uncommitted Phase 0 implementation
 - [x] Share one shutdown attempt across main/error/finally paths. Block replay and child renewal after DB renewal loss; uncertain cleanup retains ownership.
 - [x] Preserve upcoming metadata when completion races failed renewal; retain exactly-once completion for timely valid renewal. Six new deferred-operation cases pass.
 - [x] Build + 81 Node PASS; runner suite 22 PASS; regular Python 21 PASS / 3 SKIP; isolated Kurigram 24 PASS. Real Mongo 6 SKIP, lint not configured. No live safety gate is satisfied by doubles.
-- [ ] Next: late queue/release mutations and durable terminal persistence. Unresolved promises, host-native cleanup/release proof, supervisor escalation and live Phase 0 acceptance remain safety blockers.
+- [x] Late queue/release mutation settlement (see increment below).
+- [ ] Next: durable terminal persistence. Unresolved promises, host-native cleanup/release proof, supervisor escalation and live Phase 0 acceptance remain safety blockers.
 
 ### Late queue/release settlement increment
 
 Runner retains exact outstanding queue mutations and cleanup release promises beyond their deadlines. Native teardown precedes draining late queue writes; guarded lease release and holder completion wait for settlement, without retries or late success audit. Recovery excludes concurrent run/recovery. Timeout blocks this runner; a late begin/completion may still persist and requires explicit recovery, not replay. Never-settling operations deliberately retain the holder. Durable terminal journaling, host-crash cleanup and real Telegram/Mongo/Render acceptance remain separate gates. Playeon lounge ideas and restrictive licensing are recorded in SOURCE_COMPARISON.md; onboarding and lounge implementation remain gated.
+
+### Terminal acknowledgement truthfulness
+
+A correlated native terminal event alone no longer authorizes a successful runner result or completion/advancement audits. The source-bound queue CAS must report that it applied. If skip, stop, recovery or interruption supersedes the source before persistence, the runner fails closed with `TERMINAL_NOT_APPLIED`, reaps the child, performs exact guarded release only after cleanup, and remains blocked. This is conservative rejection, not reconciliation or a durable terminal journal. Normal successful CAS retries remain bounded and duplicate events do not advance twice. Durable receipt/outbox journaling and real process-crash acceptance remain unfinished; onboarding stays disabled.

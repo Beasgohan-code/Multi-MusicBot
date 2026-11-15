@@ -341,3 +341,26 @@ test('failed native cleanup still retains holder until late queue mutation settl
  finally{settle();}
  await failure;assert.equal(h.log.includes('release'),false);
 });
+
+for(const action of ['skip','stop','disconnected'] as const){
+ test(`terminal event rejected after concurrent ${action} never claims completion`,async()=>{
+  const h=harness({completionDelayMs:10});
+  const work=h.runner.runOne();
+  // Install a competing durable change after native start but before completion,
+  // sooner than the renewal poll can observe it.
+  while(!h.child?.source)await new Promise(resolve=>setImmediate(resolve));
+  const state=await h.queue.read();
+  await h.queue.apply(state.revision,action==='disconnected'?{type:action,source:state.current!.source!}:{type:action});
+  await assert.rejects(work,/TERMINAL_NOT_APPLIED/);
+  assert.equal(h.log.includes('audit:playback_completed'),false);
+  assert.equal(h.log.includes('audit:queue_advanced'),false);
+  assert.equal(h.log.includes('audit:playback_failed'),true);
+  assert.equal(h.log.filter(x=>x==='queue_action:ended').length,0);
+  assert.ok(h.log.indexOf('reap')<h.log.indexOf('release'));
+  const latest=await h.queue.read();
+  if(action==='skip')assert.equal(latest.current?.track.id,'b');
+  if(action==='stop')assert.equal(latest.current,null);
+  if(action==='disconnected')assert.equal(latest.current?.state,'interrupted');
+  await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+ });
+}

@@ -164,7 +164,14 @@ export class PlaybackRunner {
    if(renewWork)await renewWork;
    // Stop native execution before any queue persistence when DB renewal is uncertain.
    if(renewalFailed||mutationFailed)await shutdown();
-   if(end&&!renewalFailed&&!mutationFailed){completed=end.eventType==='media_ended';await mutation(applyNativeEvent(this.queue,end));outcome=completed?'completed':'interrupted';}
+   if(end&&!renewalFailed&&!mutationFailed){
+    // A correlated native event is not proof that its queue transition committed.
+    // A concurrent skip/stop/recovery may have superseded this source.
+    const applied=await mutation(applyNativeEvent(this.queue,end));
+    if(!applied)throw new Error('TERMINAL_NOT_APPLIED');
+    completed=end.eventType==='media_ended';
+    outcome=completed?'completed':'interrupted';
+   }
    else{
     if(superseded)outcome=superseded;
     const latest=await this.bounded(this.queue.read());
