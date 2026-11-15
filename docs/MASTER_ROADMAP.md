@@ -191,3 +191,11 @@ This delivery also checkpoints the previously uncommitted Phase 0 implementation
 - [x] Compensate only a known returned late generation with exact holder/generation release and no constructed child. Observe late rejection; retain ownership/blocking on failed compensation.
 - [x] Three deferred-operation regressions pass; no Python/native behavior changed. Final build + 75 Node PASS; regular Python 21 PASS / 3 SKIP, isolated Kurigram 24 PASS, real Mongo 6 SKIP. No lint configuration exists.
 - [ ] Next increment: late renewal settlement with prompt native teardown, followed by late queue/release mutations. Trusted host cleanup, bounded escalation and live Phase 0 gates still block onboarding.
+
+### NEXT: late renewal settlement — 2026-11-15
+
+- [x] Reproduce and fix early release while DB renewal remains pending; native teardown precedes interruption persistence, while release/holder finish await exact renewal settlement.
+- [x] Share one shutdown attempt across main/error/finally paths. Block replay and child renewal after DB renewal loss; uncertain cleanup retains ownership.
+- [x] Preserve upcoming metadata when completion races failed renewal; retain exactly-once completion for timely valid renewal. Six new deferred-operation cases pass.
+- [x] Build + 81 Node PASS; runner suite 22 PASS; regular Python 21 PASS / 3 SKIP; isolated Kurigram 24 PASS. Real Mongo 6 SKIP, lint not configured. No live safety gate is satisfied by doubles.
+- [ ] Next: late queue/release mutations and durable terminal persistence. Unresolved promises, host-native cleanup/release proof, supervisor escalation and live Phase 0 acceptance remain safety blockers.

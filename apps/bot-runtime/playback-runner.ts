@@ -32,6 +32,22 @@ export class PlaybackRunner {
   try{return await Promise.race([work,new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('OPERATION_TIMEOUT')),this.options.operationTimeoutMs);})]);}
   finally{if(timer)clearTimeout(timer);}
  }
+ private async shutdownChild(child:PlaybackChild,record:(type:string)=>Promise<unknown>):Promise<void>{
+  const shutdown=child.shutdown();
+  let cleanup:{clean:boolean};
+  try{cleanup=await this.bounded(shutdown);}
+  catch(error){
+   // A Promise timeout cannot cancel native teardown. Keep runOne pending so
+   // its supervisor cannot finish/restart the holder before actual settlement.
+   // Even late clean completion does not retroactively authorize lease reuse.
+   this.blocked=true;
+   await record('cleanup_uncertain').catch(()=>{});
+   await shutdown.catch(()=>{});
+   throw error;
+  }
+  await record('child_exited');
+  if(!cleanup.clean){this.blocked=true;await record('cleanup_uncertain').catch(()=>{});throw new Error('CLEANUP_UNCERTAIN');}
+ }
  /** Signal only; runOne must finish cleanup before the caller may dispose/restart. */
  stop():void{this.stopping=true;this.cancel?.();}
  async recover():Promise<void>{
@@ -50,9 +66,12 @@ export class PlaybackRunner {
   let child:PlaybackChild|undefined, generation:number|undefined, timer:NodeJS.Timeout|undefined, renewWork:Promise<void>|undefined;
   let source:Source|undefined, completed=false, outcome:'completed'|'skipped'|'interrupted'='interrupted';
   let superseded:'skipped'|'interrupted'|undefined;
+  let pendingLeaseRenewal:Promise<{generation:number}>|undefined,renewalFailed=false;
+  let shutdownWork:Promise<void>|undefined;
   let state=await this.queue.read().catch(e=>{this.running=false;throw e;});
   const sessionId=randomUUID();
   const record=async(type:string)=>this.bounded(this.audit({type,botId:state.botId,chatId:state.chatId,sessionId,generation:generation??0}));
+  const shutdown=():Promise<void>=>child?(shutdownWork??=this.shutdownChild(child,record)):Promise.resolve();
   let terminalResolve:(e:VoiceEvent|null)=>void=()=>{};
   let terminalSettled=false;
   let cancelled:boolean=this.stopping;
@@ -112,8 +131,11 @@ export class PlaybackRunner {
      }
      if(terminalSettled||performance.now()-lastRenewed<o.renewEveryMs)return;
      const began=performance.now();
-     const renewed=await this.bounded(this.leases.renew(o.assistantId,o.holderId,generation!,o.leaseTtlMs));
-     if(renewed.generation!==generation)throw new Error('LEASE_LOST');
+     pendingLeaseRenewal=this.leases.renew(o.assistantId,o.holderId,generation!,o.leaseTtlMs);
+     try{
+      const renewed=await this.bounded(pendingLeaseRenewal);
+      if(renewed.generation!==generation)throw new Error('LEASE_LOST');
+     }catch(error){renewalFailed=true;this.blocked=true;throw error;}
      if(terminalSettled)return;
      const leaseMs=Math.floor(o.leaseTtlMs-(performance.now()-began)-o.operationTimeoutMs);
      if(leaseMs<100)throw new Error('LEASE_BUDGET_EXHAUSTED');
@@ -127,7 +149,9 @@ export class PlaybackRunner {
    const end=await terminal;
    if(timer)clearTimeout(timer);
    if(renewWork)await renewWork;
-   if(end){completed=end.eventType==='media_ended';await this.bounded(applyNativeEvent(this.queue,end));outcome=completed?'completed':'interrupted';}
+   // Stop native execution before any queue persistence when DB renewal is uncertain.
+   if(renewalFailed)await shutdown();
+   if(end&&!renewalFailed){completed=end.eventType==='media_ended';await this.bounded(applyNativeEvent(this.queue,end));outcome=completed?'completed':'interrupted';}
    else{
     if(superseded)outcome=superseded;
     const latest=await this.bounded(this.queue.read());
@@ -143,27 +167,21 @@ export class PlaybackRunner {
    try{
     if(generation!==undefined){
      if(child){
-      const shutdown=child.shutdown();
-      let cleanup:{clean:boolean};
-      try{cleanup=await this.bounded(shutdown);}
-      catch(error){
-       // A Promise timeout cannot cancel native teardown. Keep runOne pending so
-       // its supervisor cannot finish/restart the holder before actual settlement.
-       // Even late clean completion does not retroactively authorize lease reuse.
-       this.blocked=true;
-       await record('cleanup_uncertain').catch(()=>{});
-       await shutdown.catch(()=>{});
-       throw error;
-      }
-      await record('child_exited');
-      if(!cleanup.clean){this.blocked=true;await record('cleanup_uncertain').catch(()=>{});throw new Error('CLEANUP_UNCERTAIN');}
+      await shutdown();
      }
+     // Native teardown must precede waiting for a delayed Mongo renewal.
+     // Release must follow settlement, even if renewal rejected with an unknown DB outcome.
+     if(pendingLeaseRenewal)await pendingLeaseRenewal.catch(()=>{});
      // No child was constructed, or native leave + reap was confirmed.
      await this.bounded(this.leases.releaseAfterCleanup(o.assistantId,o.holderId,generation));
      await record('assistant_released');
     }
    }catch(error){this.blocked=true;throw error;}
-   finally{this.running=false;}
+   finally{
+    // Even failed teardown cannot let the supervisor finish while Mongo can still mutate ownership.
+    if(pendingLeaseRenewal)await pendingLeaseRenewal.catch(()=>{});
+    this.running=false;
+   }
   }
  }
 }
