@@ -1,0 +1,4 @@
+# Offline constructor-checked baseline; live Telegram/Render acceptance still required.
+kurigram==2.2.26
+py-tgcalls==2.3.3
+ntgcalls==2.2.5

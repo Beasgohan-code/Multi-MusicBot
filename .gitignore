@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+*.session
+*.session-journal
+media/
+
+.venv*/
+
+# Local upstream inspection / generation scratch files
+.cache/

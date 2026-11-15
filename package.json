@@ -1,0 +1,27 @@
+{
+  "name": "multi-musicbot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsx --test tests/unit/*.test.ts",
+    "test:python": "python3 -m unittest discover -s tests/voice -v",
+    "check": "npm run build && npm test && npm run test:python",
+    "test:integration": "tsx --test tests/integration/*.test.ts",
+    "phase0": "tsx scripts/run-playback.ts",
+    "phase0:maintain": "tsx scripts/maintain-ownership.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "mongodb": "^6.22.0",
+    "telegraf": "^4.16.3"
+  }
+}

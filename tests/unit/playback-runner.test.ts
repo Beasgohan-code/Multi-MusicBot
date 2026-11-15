@@ -1,0 +1,134 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import { PlaybackRunner } from '../../apps/bot-runtime/playback-runner.js';
+import { emptyQueue, transition, type Action } from '../../packages/queue/state.js';
+import type { VoiceRequest } from '../../packages/shared/protocol.js';
+import type { VoiceEvent } from '../../apps/bot-runtime/voice-process.js';
+
+function harness(options: {cleanup?:boolean; renewFails?:boolean; persistFails?:boolean; crash?:boolean; releaseFails?:boolean; completionDelayMs?:number; disconnect?:boolean; cleanupGate?:Promise<void>; operationTimeoutMs?:number}={}) {
+ let state=emptyQueue('123','-1001');
+ for(const id of ['a','b']) state=transition(state,{type:'enqueue',track:{id,title:id,mediaHandle:id}});
+ const log:string[]=[]; let acquired=false; let generation=0; let lastChild:Child|undefined;
+ const queue={async read(){return structuredClone(state);}, async apply(rev:number,a:Action){
+  if(options.persistFails && (a.type==='ended'||a.type==='disconnected')) throw new Error('DB_DOWN');
+  if(rev!==state.revision)throw new Error('STALE_REVISION');state=transition(state,a);return structuredClone(state);
+ }};
+ const leases={async acquire(){if(acquired)throw new Error('ASSISTANT_BUSY');acquired=true;log.push('acquire');return {generation:++generation};},async renew(){log.push('renew');if(options.renewFails)throw new Error('DB_DOWN');return {generation};},async releaseAfterCleanup(){if(options.releaseFails)throw new Error('DB_DOWN');log.push('release');acquired=false;}};
+ class Child extends EventEmitter {
+  source:VoiceRequest|undefined;
+  revision=0;
+  async request(r:VoiceRequest):Promise<VoiceEvent>{
+   if(r.operation!=='renew')this.revision=r.expectedRevision+1;
+   if(r.operation==='start-local-media') {
+    this.source=r;log.push('start');
+    setTimeout(()=>{
+     if(options.crash){this.emit('voiceClosed','VOICE_EXITED');return;}
+     if(options.renewFails)return;
+     const e:VoiceEvent={protocolVersion:1,eventId:'end',requestId:r.requestId,sessionId:r.sessionId,leaseGeneration:r.assistantLeaseGeneration,sessionRevision:this.revision+1,eventType:options.disconnect?'disconnected':'media_ended',result:{playbackRequestId:r.requestId}};
+     this.emit('voiceEvent',e);this.emit('voiceEvent',e);
+    },options.completionDelayMs??5);
+   }
+   return {protocolVersion:1,eventId:'ack',requestId:r.requestId,sessionId:r.sessionId,leaseGeneration:r.assistantLeaseGeneration,sessionRevision:r.expectedRevision+(r.operation==='renew'?0:1),eventType:r.operation==='renew'?'heartbeat':r.operation==='pause'?'paused':r.operation==='resume'?'resumed':'playback_started',result:{state:'playing'}};
+  }
+  async shutdown(){if(options.cleanupGate)await options.cleanupGate;log.push('reap');return {clean:options.cleanup!==false};}
+ }
+ const runner=new PlaybackRunner(queue,leases,()=>{lastChild=new Child();return lastChild;},async e=>{log.push('audit:'+e.type);},{assistantId:'assistant1',holderId:'worker1',leaseTtlMs:1000,renewEveryMs:20,operationTimeoutMs:options.operationTimeoutMs??200});
+ return {runner,log,queue,get acquired(){return acquired;},get child(){return lastChild;}};
+}
+test('runner commits completion once, reaps then releases before next start',async()=>{
+ const h=harness();assert.equal(await h.runner.runOne(),'completed');
+ assert.equal((await h.queue.read()).current?.track.id,'b');
+ assert.equal(h.acquired,false);
+ assert.ok(h.log.indexOf('reap')<h.log.indexOf('release'));
+ assert.equal(await h.runner.runOne(),'completed');
+ assert.equal(h.log.filter(x=>x==='start').length,2);
+});
+test('uncertain cleanup never releases assistant or starts another track',async()=>{
+ const h=harness({cleanup:false});await assert.rejects(h.runner.runOne(),/CLEANUP_UNCERTAIN/);
+ assert.equal(h.acquired,true);assert.ok(!h.log.includes('release'));
+ await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+});
+test('renewal failure tears down child and interrupts instead of advancing',async()=>{
+ const h=harness({renewFails:true});assert.equal(await h.runner.runOne(),'interrupted');
+ assert.ok(h.log.includes('renew'));assert.ok(h.log.includes('reap'));
+ assert.equal((await h.queue.read()).current?.state,'interrupted');
+ assert.equal((await h.queue.read()).upcoming[0]?.id,'b');
+});
+test('crash and persistence failure never claim completion or resume old start intent',async()=>{
+ const crash=harness({crash:true,cleanup:false});await assert.rejects(crash.runner.runOne(),/CLEANUP_UNCERTAIN/);
+ const h=harness({persistFails:true});await assert.rejects(h.runner.runOne(),/DB_DOWN/);
+ assert.ok(h.log.includes('reap'));await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+ assert.equal((await h.queue.read()).current?.track.id,'a');
+});
+test('explicit recovery never replays an existing start after persistence failure',async()=>{
+ const h=harness({persistFails:true});await assert.rejects(h.runner.runOne());
+ await h.runner.recover();const s=await h.queue.read();
+ assert.equal(s.current,null);assert.equal(s.intent,null);assert.equal(s.savedUpcoming[0]?.id,'b');
+});
+test('successful renewal keeps playback active and cleanup outage retains lease',async()=>{
+ const h=harness({completionDelayMs:80});assert.equal(await h.runner.runOne(),'completed');
+ assert.ok(h.log.filter(x=>x==='renew').length>=1);
+ const outage=harness({releaseFails:true});await assert.rejects(outage.runner.runOne(),/DB_DOWN/);
+ assert.equal(outage.acquired,true);await assert.rejects(outage.runner.runOne(),/RUNNER_BLOCKED/);
+});
+test('persisted skip cancels/reaps active child before the next staged track',async()=>{
+ const h=harness({completionDelayMs:150});const work=h.runner.runOne();
+ await new Promise(resolve=>setTimeout(resolve,15));
+ const s=await h.queue.read();await h.queue.apply(s.revision,{type:'skip'});
+ assert.equal(await work,'skipped');
+ assert.equal((await h.queue.read()).current?.track.id,'b');
+ assert.equal(h.log.filter(x=>x==='start').length,1);
+ assert.ok(h.log.indexOf('reap')<h.log.indexOf('release'));
+});
+test('disconnect interrupts without consuming upcoming tracks',async()=>{
+ const h=harness({disconnect:true});assert.equal(await h.runner.runOne(),'interrupted');
+ const s=await h.queue.read();assert.equal(s.current?.state,'interrupted');assert.equal(s.upcoming[0]?.id,'b');
+});
+test('persisted pause and resume are applied through confirmed IPC acknowledgements',async()=>{
+ const h=harness({completionDelayMs:160});const work=h.runner.runOne();
+ await new Promise(resolve=>setTimeout(resolve,15));let s=await h.queue.read();await h.queue.apply(s.revision,{type:'pause'});
+ await new Promise(resolve=>setTimeout(resolve,40));s=await h.queue.read();assert.equal(s.current?.state,'paused');
+ await h.queue.apply(s.revision,{type:'resume'});
+ await new Promise(resolve=>setTimeout(resolve,40));s=await h.queue.read();assert.equal(s.current?.state,'playing');
+ assert.equal(await work,'completed');
+});
+test('queue recovery cannot clear uncertain-cleanup quarantine',async()=>{
+ const h=harness({cleanup:false});await assert.rejects(h.runner.runOne());
+ await h.runner.recover();
+ await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+ assert.equal(h.acquired,true);
+});
+test('stop is latched before any run and prevents later assistant acquisition',async()=>{
+ const h=harness();h.runner.stop();
+ await assert.rejects(h.runner.runOne(),/RUNNER_STOPPED/);
+ assert.equal(h.log.includes('acquire'),false);
+});
+
+test('cleanup timeout cannot settle the runner before the native shutdown actually finishes',async()=>{
+ let reap!:()=>void;
+ const gate=new Promise<void>(resolve=>{reap=resolve;});
+ const h=harness({cleanupGate:gate,operationTimeoutMs:20});
+ let settled=false;
+ const work=h.runner.runOne();work.then(()=>{settled=true;},()=>{settled=true;});
+ try{
+  await new Promise(resolve=>setTimeout(resolve,70));
+  assert.equal(settled,false,'supervisor must not finish the holder while native teardown is pending');
+  assert.equal(h.acquired,true);assert.equal(h.log.includes('release'),false);
+  await assert.rejects(h.runner.recover(),/RUNNER_BUSY/);
+ }finally{reap();}
+ await assert.rejects(work,/OPERATION_TIMEOUT/);
+ assert.ok(h.log.includes('reap'));assert.equal(h.acquired,true);
+ await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+});
+test('late shutdown rejection is observed without releasing assistant ownership',async()=>{
+ let rejectShutdown!:(error:Error)=>void;
+ const gate=new Promise<void>((_,reject)=>{rejectShutdown=reject;});
+ const h=harness({cleanupGate:gate,operationTimeoutMs:20});
+ const work=h.runner.runOne();const rejection=assert.rejects(work,/OPERATION_TIMEOUT/);
+ await new Promise(resolve=>setTimeout(resolve,70));
+ assert.equal(h.acquired,true);assert.equal(h.log.includes('release'),false);
+ rejectShutdown(new Error('NATIVE_FAILURE'));
+ await rejection;
+ assert.equal(h.acquired,true);await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+});

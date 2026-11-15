@@ -1,0 +1,5 @@
+# Compatibility experiment ONLY: currently fails with missing GroupcallForbidden.
+# Install in a separate venv, never alongside Kurigram.
+wzgram==3.1.7
+py-tgcalls==2.3.3
+ntgcalls==2.2.5
