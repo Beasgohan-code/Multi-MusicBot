@@ -63,7 +63,17 @@ export class PlaybackRunner {
    if(state.current?.source)throw new Error('RECOVERY_REQUIRED');
    if(!state.current&&!state.upcoming.length)return 'idle';
    const acquiredAt=performance.now();
-   generation=(await this.bounded(this.leases.acquire(o.assistantId,o.holderId,state.botId,state.chatId,o.leaseTtlMs))).generation;
+   const acquisition=this.leases.acquire(o.assistantId,o.holderId,state.botId,state.chatId,o.leaseTtlMs);
+   try{generation=(await this.bounded(acquisition)).generation;}
+   catch(error){
+    // A deadline does not cancel Mongo. Keep the holder busy until this exact
+    // acquisition settles; never retry it or start native playback from a late result.
+    this.blocked=true;
+    try{generation=(await acquisition).generation;}catch{ /* Unknown DB outcome remains for reconciliation. */ }
+    // A known late acquisition had no child: finally may compensate only its
+    // exact holder/generation. A rejected/unknown outcome must never claim release.
+    throw error;
+   }
    await record('assistant_acquired');
    source={sessionId,generation,requestId:randomUUID()};
    state=await this.bounded(this.queue.apply(state.revision,{type:'begin',source}));

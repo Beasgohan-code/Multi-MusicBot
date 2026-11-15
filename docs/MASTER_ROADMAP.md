@@ -184,3 +184,10 @@ For each NEXT: inspect branch/status/history and repository/docs, compare code t
 - [ ] Next: fence and settle late assistant acquire/renew and queue mutations, then harden process-group/drain escalation and verified host cleanup/release. Existing shutdown timeout is not a cancellation primitive.
 
 This delivery also checkpoints the previously uncommitted Phase 0 implementation from earlier accepted increments; those foundations are not new work from this single regression fix. Final commit/push identifiers are reported in the engineering response rather than predicted here.
+
+### NEXT: late assistant acquisition settlement — 2026-11-15
+
+- [x] Reproduce acquisition timeout letting `runOne` finish before the underlying acquire resolves; fix by observing that same promise to settlement without retry or native start.
+- [x] Compensate only a known returned late generation with exact holder/generation release and no constructed child. Observe late rejection; retain ownership/blocking on failed compensation.
+- [x] Three deferred-operation regressions pass; no Python/native behavior changed. Final build + 75 Node PASS; regular Python 21 PASS / 3 SKIP, isolated Kurigram 24 PASS, real Mongo 6 SKIP. No lint configuration exists.
+- [ ] Next increment: late renewal settlement with prompt native teardown, followed by late queue/release mutations. Trusted host cleanup, bounded escalation and live Phase 0 gates still block onboarding.

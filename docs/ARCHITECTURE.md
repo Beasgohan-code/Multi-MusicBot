@@ -223,3 +223,7 @@ This is **quarantine reconciliation only**, not complete cleanup/release reconci
 ### Late native-shutdown settlement contract
 
 A runner cleanup deadline is a failure boundary, not proof that teardown was cancelled. After a shutdown timeout/rejection the runner blocks reuse and observes the underlying shutdown promise to settlement before finishing its run. The supervisor therefore cannot record worker finish merely because Promise.race timed out. Late clean teardown remains conservatively leased/quarantined, not automatically reused. An indefinitely unresolved shutdown intentionally holds the run pending. Other late database mutations, host-level cleanup evidence and bounded native escalation remain separate unfinished work.
+
+### Late acquisition settlement contract
+
+Before a voice child exists, a timed-out acquire must remain attached to its original holder until its promise settles. The runner now captures any known late generation and compensates through the existing exact-holder/generation release; no late result may start playback or replay the request. This is cleanup of a newly acquired **unused** slot, not reuse of an uncertain native session. A rejected/unknown database outcome has no trustworthy generation to release and remains for reconciliation. Failure to compensate leaves the runner blocked, and metadata recovery cannot bypass it. Acquisition that never settles holds the run pending. This supersedes the earlier missing late-acquire handling; renewal, queue/release settlement and native host-crash recovery remain separate gaps.

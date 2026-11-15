@@ -6,15 +6,15 @@ import { emptyQueue, transition, type Action } from '../../packages/queue/state.
 import type { VoiceRequest } from '../../packages/shared/protocol.js';
 import type { VoiceEvent } from '../../apps/bot-runtime/voice-process.js';
 
-function harness(options: {cleanup?:boolean; renewFails?:boolean; persistFails?:boolean; crash?:boolean; releaseFails?:boolean; completionDelayMs?:number; disconnect?:boolean; cleanupGate?:Promise<void>; operationTimeoutMs?:number}={}) {
+function harness(options: {cleanup?:boolean; renewFails?:boolean; persistFails?:boolean; crash?:boolean; releaseFails?:boolean; completionDelayMs?:number; disconnect?:boolean; cleanupGate?:Promise<void>; acquireGate?:Promise<void>; operationTimeoutMs?:number}={}) {
  let state=emptyQueue('123','-1001');
  for(const id of ['a','b']) state=transition(state,{type:'enqueue',track:{id,title:id,mediaHandle:id}});
- const log:string[]=[]; let acquired=false; let generation=0; let lastChild:Child|undefined;
+ const log:string[]=[]; const releaseBindings:{assistantId:string;holder:string;generation:number}[]=[]; let acquired=false; let generation=0; let lastChild:Child|undefined;
  const queue={async read(){return structuredClone(state);}, async apply(rev:number,a:Action){
   if(options.persistFails && (a.type==='ended'||a.type==='disconnected')) throw new Error('DB_DOWN');
   if(rev!==state.revision)throw new Error('STALE_REVISION');state=transition(state,a);return structuredClone(state);
  }};
- const leases={async acquire(){if(acquired)throw new Error('ASSISTANT_BUSY');acquired=true;log.push('acquire');return {generation:++generation};},async renew(){log.push('renew');if(options.renewFails)throw new Error('DB_DOWN');return {generation};},async releaseAfterCleanup(){if(options.releaseFails)throw new Error('DB_DOWN');log.push('release');acquired=false;}};
+ const leases={async acquire(){log.push('acquire_requested');if(options.acquireGate)await options.acquireGate;if(acquired)throw new Error('ASSISTANT_BUSY');acquired=true;log.push('acquire');return {generation:++generation};},async renew(){log.push('renew');if(options.renewFails)throw new Error('DB_DOWN');return {generation};},async releaseAfterCleanup(assistantId:string,holder:string,generation:number){releaseBindings.push({assistantId,holder,generation});if(options.releaseFails)throw new Error('DB_DOWN');log.push('release');acquired=false;}};
  class Child extends EventEmitter {
   source:VoiceRequest|undefined;
   revision=0;
@@ -34,7 +34,7 @@ function harness(options: {cleanup?:boolean; renewFails?:boolean; persistFails?:
   async shutdown(){if(options.cleanupGate)await options.cleanupGate;log.push('reap');return {clean:options.cleanup!==false};}
  }
  const runner=new PlaybackRunner(queue,leases,()=>{lastChild=new Child();return lastChild;},async e=>{log.push('audit:'+e.type);},{assistantId:'assistant1',holderId:'worker1',leaseTtlMs:1000,renewEveryMs:20,operationTimeoutMs:options.operationTimeoutMs??200});
- return {runner,log,queue,get acquired(){return acquired;},get child(){return lastChild;}};
+ return {runner,log,queue,releaseBindings,get acquired(){return acquired;},get child(){return lastChild;}};
 }
 test('runner commits completion once, reaps then releases before next start',async()=>{
  const h=harness();assert.equal(await h.runner.runOne(),'completed');
@@ -131,4 +131,48 @@ test('late shutdown rejection is observed without releasing assistant ownership'
  rejectShutdown(new Error('NATIVE_FAILURE'));
  await rejection;
  assert.equal(h.acquired,true);await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+});
+
+test('late successful acquire is settled and compensated without ever starting a child',async()=>{
+ let resolveAcquire!:()=>void;
+ const acquireGate=new Promise<void>(resolve=>{resolveAcquire=resolve;});
+ const h=harness({acquireGate,operationTimeoutMs:20});
+ let settled=false;const work=h.runner.runOne();work.then(()=>{settled=true;},()=>{settled=true;});
+ try{
+  await new Promise(resolve=>setTimeout(resolve,70));
+  assert.equal(settled,false,'holder must remain active while acquisition can still complete');
+  await assert.rejects(h.runner.recover(),/RUNNER_BUSY/);
+  assert.equal(h.child,undefined);assert.equal(h.log.includes('release'),false);
+ }finally{resolveAcquire();}
+ await assert.rejects(work,/OPERATION_TIMEOUT/);
+ assert.equal(h.child,undefined);assert.equal(h.acquired,false);
+ assert.equal(h.log.filter(x=>x==='acquire_requested').length,1);
+ assert.equal(h.log.filter(x=>x==='release').length,1);
+ assert.deepEqual(h.releaseBindings,[{assistantId:'assistant1',holder:'worker1',generation:1}]);
+ assert.equal((await h.queue.read()).current,null);
+ await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+});
+test('late rejected acquire is observed without pretending ownership was released',async()=>{
+ let rejectAcquire!:(e:Error)=>void;
+ const acquireGate=new Promise<void>((_,reject)=>{rejectAcquire=reject;});
+ const h=harness({acquireGate,operationTimeoutMs:20});
+ let settled=false;const work=h.runner.runOne();work.then(()=>{settled=true;},()=>{settled=true;});const rejection=assert.rejects(work,/OPERATION_TIMEOUT/);
+ await new Promise(resolve=>setTimeout(resolve,70));
+ try{assert.equal(settled,false);}finally{rejectAcquire(new Error('DB_DOWN'));}
+ await rejection;
+ assert.equal(h.child,undefined);assert.equal(h.log.includes('release'),false);
+ assert.equal(h.log.filter(x=>x==='acquire_requested').length,1);
+ await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+});
+
+test('failure compensating a known late acquisition retains ownership and blocks replay',async()=>{
+ let resolveAcquire!:()=>void;
+ const acquireGate=new Promise<void>(resolve=>{resolveAcquire=resolve;});
+ const h=harness({acquireGate,releaseFails:true,operationTimeoutMs:20});
+ const work=h.runner.runOne();const rejection=assert.rejects(work,/DB_DOWN/);
+ await new Promise(resolve=>setTimeout(resolve,70));resolveAcquire();await rejection;
+ assert.equal(h.acquired,true);assert.equal(h.child,undefined);
+ assert.deepEqual(h.releaseBindings,[{assistantId:'assistant1',holder:'worker1',generation:1}]);
+ await h.runner.recover();await assert.rejects(h.runner.runOne(),/RUNNER_BLOCKED/);
+ assert.equal(h.log.filter(x=>x==='acquire_requested').length,1);
 });
