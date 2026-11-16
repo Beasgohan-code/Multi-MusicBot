@@ -11,6 +11,7 @@ interface Options {token:string;workerId:string;expectedBotId:string;heartbeatMs
 export class AuthenticatedSupervisor {
  private readonly abort=new AbortController();
  private used=false;
+ private pendingHeartbeat:Promise<void>|undefined;
  constructor(private readonly registry:Registry,private readonly options:Options){
   if(!/^[A-Za-z0-9_-]{43,128}$/.test(options.token)||!Number.isSafeInteger(options.heartbeatMs)||options.heartbeatMs<1||!Number.isSafeInteger(options.operationTimeoutMs)||options.operationTimeoutMs<1||options.heartbeatMs+options.operationTimeoutMs>=15000)throw new Error('SUPERVISOR_CONFIG_INVALID');
  }
@@ -18,7 +19,8 @@ export class AuthenticatedSupervisor {
  private async heartbeat(binding:WorkerBinding):Promise<void>{
   let timer:NodeJS.Timeout|undefined;
   try{
-   await Promise.race([this.registry.heartbeat(binding,true,this.options.token),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('SUPERVISOR_OWNERSHIP_LOST')),this.options.operationTimeoutMs);})]);
+   this.pendingHeartbeat=this.registry.heartbeat(binding,true,this.options.token);
+   await Promise.race([this.pendingHeartbeat,new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('SUPERVISOR_OWNERSHIP_LOST')),this.options.operationTimeoutMs);})]);
   }finally{if(timer)clearTimeout(timer);}
  }
  async run(work:(binding:WorkerBinding,signal:AbortSignal)=>Promise<{clean:boolean}>):Promise<void>{
@@ -41,6 +43,10 @@ export class AuthenticatedSupervisor {
   }finally{
    this.abort.abort();if(timer)clearTimeout(timer);
    if(inFlight)await inFlight;
+   // A deadline aborts/drains work but cannot cancel the registry write (or its
+   // audit relay). Keep this holder until that exact operation settles, even if
+   // work cleanup failed. Never retry a late heartbeat or restore readiness.
+   if(this.pendingHeartbeat)await this.pendingHeartbeat.catch(()=>{});
    // Ownership loss is conservative quarantine even if native teardown later succeeds.
    await this.registry.finish(binding,clean&&!lost,this.options.token);
   }

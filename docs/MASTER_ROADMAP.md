@@ -16,7 +16,7 @@ Each NEXT audits **all eight repository Markdown files** (README, PLAN and docs)
 
 Current foundation: authenticated operator supervisor, exact-holder/generation lease guards, quarantine, atomic ownership outbox/relay, late acquire/renew/queue/release/shutdown settlement, truthful terminal acknowledgements, atomic terminal receipts and trusted operator archive-before-ack relay. None proves audible playback or safe host-crash takeover.
 
-Next safety priority: terminal relay acceptance on real Mongo, late supervisor/host process cleanup and conservative crash reconciliation, then real Phase 0 Telegram/FFmpeg/Render acceptance. No factory onboarding or attractive frontend before those gates. Afterward: authenticated multi-bot factory/quotas → clone lifecycle → one desired/applied settings roundtrip → shared group/music modules → plugins/web/Mini App/lounge/billing at their gates. All A–Q scope and independent clone workspaces remain required, not silently dropped.
+Next safety priority: terminal relay acceptance on real Mongo, process-group escalation/host cleanup and conservative crash reconciliation, then real Phase 0 Telegram/FFmpeg/Render acceptance. Supervisor heartbeat settlement is implemented in the latest checkpoint below. No factory onboarding or attractive frontend before those gates. Afterward: authenticated multi-bot factory/quotas → clone lifecycle → one desired/applied settings roundtrip → shared group/music modules → plugins/web/Mini App/lounge/billing at their gates. All A–Q scope and independent clone workspaces remain required, not silently dropped.
 
 ## Detailed feature logic
 
@@ -228,7 +228,7 @@ A correlated native terminal event alone no longer authorizes a successful runne
 - [ ] Pre-persistence native-event crash loss, durable runner audits, host cleanup, real Mongo/Telegram/Render acceptance and onboarding remain blocked. Terminal receipts are not cleanup evidence.
 
 
-### Current delivery evidence — documentation reconciliation and terminal relay
+### Documentation reconciliation and terminal relay checkpoint
 
 Reviewed all eight repository Markdown files against current source/tests, not only the roadmap tail. Removed stale approval/no-code/Node-native defaults, permanent one-bot-per-owner assumptions and requests for an already-inspected Playeon URL. Updated worker/supervisor/audit implementation maps and marked old evidence checkpoints historical. Product scope A–Q, shared main/worker moderation, multiple-bot quotas, independent clone workspaces/settings desired/applied revisions, disabled-plugin execution checks, Videl0 catalogue fallbacks and later web/lounge/billing gates are retained. No new audit document or empty module tree was created.
 
@@ -236,4 +236,14 @@ Implemented and wired `TerminalOutbox` into trusted `phase0:maintain`: tenant-sc
 
 Verification: `npm run check` build/typecheck + **112 Node PASS**, regular Python **21 PASS / 3 optional-native SKIP**; isolated locked Kurigram **24 PASS**; real Mongo **8 SKIP**, including new tenant-scoped relay/revision integration case. Production dependency audit reports 0 known vulnerabilities; lint script absent. No live Telegram/Render evidence or Phase 1 advancement.
 
-Next bounded safety task: audit supervisor late-heartbeat/finish settlement and process-group cleanup/escalation against deferred-operation tests; keep unknown native holders quarantined. Run terminal relay/CAS tests on a real configured Mongo before claiming persistence acceptance. Serialized runtime relay scheduling, complete runner audit delivery, pre-persistence event loss, host-crash cleanup and actual Phase 0 acceptance remain open. No factory onboarding before these gates.
+Subsequent supervisor settlement work is recorded below. Process-group cleanup/escalation and unknown native-holder quarantine remain required. Run terminal relay/CAS tests on a real configured Mongo before claiming persistence acceptance. Serialized runtime relay scheduling, complete runner audit delivery, pre-persistence event loss, host-crash cleanup and actual Phase 0 acceptance remain open. No factory onboarding before these gates.
+
+
+### Current delivery evidence — supervisor late heartbeat settlement
+
+- [x] Re-read all eight repository Markdown files, inspect clean active-branch status/history before edits, and review supervisor/transport source. Preserve full multi-bot/clone/settings/group/plugin/web scope and live acceptance gates.
+- [x] Five observed RED regressions: initial and active heartbeat late success/rejection, plus runtime cleanup failure while heartbeat remains pending. Fix by retaining and draining the exact heartbeat promise before holder finish, without delaying prompt work abort or accepting late readiness.
+- [x] Three additional compatibility tests preserve timely in-flight heartbeat success and awaited late finish persistence success/rejection, with no retry. Supervisor suite 16 PASS; total Node 120 PASS. Build/typecheck PASS; regular Python 21 PASS / 3 optional-native SKIP; isolated Kurigram 24 PASS; real Mongo 8 SKIP without configured target; lint absent. Deferred registry doubles are not real network/database crash evidence.
+- [ ] Next bounded task: reproduce and harden process-group cleanup/escalation with real local subprocess fixtures; verify unknown native groups never authorize assistant release. No live Telegram/Render playback, host cleanup attestation, automated safe-unquarantine or clone onboarding is claimed.
+
+A heartbeat/finish that never settles intentionally keeps the run pending. This closes early holder completion for heartbeat races, not bounded drain or full crash recovery. Terminal relay real-Mongo acceptance, serialized runtime delivery, complete runner audits and pre-persistence event loss remain open.
