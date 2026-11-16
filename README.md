@@ -71,7 +71,7 @@ Shared bot-ui: semantic icons · HTML escaping · Unicode fallback · templates
 - Preserve upcoming metadata on recovery without blindly replaying an interrupted start.
 - Restrict local media to an operator-provisioned allowlist. No arbitrary tenant paths or URLs.
 
-Voice shutdown/close now share one cleanup operation per child, preventing concurrent callers from disrupting leave acknowledgement or repeating a completed close. Local subprocess tests cover a reaped same-group descendant and SIGKILL escalation for a SIGTERM-resistant child; forced termination still retains the assistant lease. These are transport/OS fixtures, not proof of Telegram/native cleanup. Global crash safety still requires the remaining acceptance work.
+Voice shutdown/close now share one cleanup operation per child, preventing concurrent callers from disrupting leave acknowledgement or repeating a completed close. Local subprocess tests cover a reaped same-group descendant and SIGKILL escalation for a SIGTERM-resistant child; forced immediate-child termination still retains the assistant lease. After immediate-child reap, cleanup now observes original-group disappearance for up to two seconds; only ESRCH proves absence, while signal/probe errors and deadline exhaustion remain uncertain. Close completion alone is not clean-release evidence. These are transport/OS checks, not proof of Telegram/native or escaped-descendant cleanup. Global crash safety still requires the remaining acceptance work.
 
 ## Repository layout
 

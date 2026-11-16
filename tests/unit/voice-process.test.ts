@@ -119,3 +119,60 @@ test('close escalates after ignored SIGTERM and awaits immediate-child reap', {s
   assert.deepEqual(await voice.shutdown(),{clean:false});assert.equal(voice.close(),closing);
  }finally{await closing;}
 });
+test('shutdown waits for delayed group absence after immediate-child reap', {skip:process.platform==='win32'},async(t)=>{
+ const original=process.kill.bind(process);let probes=0;
+ const kill=t.mock.method(process,'kill',(pid:number,signal?:NodeJS.Signals|number)=>{
+  if(signal===0&&pid<0&&++probes<3)return true;
+  return original(pid,signal);
+ });
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ try{
+  await voice.request({...request,operation:'start-local-media',payload:{mediaHandle:'a'}});
+  assert.deepEqual(await voice.shutdown(),{clean:true});assert.ok(probes>=3);
+ }finally{await voice.close();kill.mock.restore();}
+});
+test('non-ESRCH signal error cannot be silently treated as successful cleanup', {skip:process.platform==='win32'},async(t)=>{
+ const original=process.kill.bind(process);
+ const kill=t.mock.method(process,'kill',(pid:number,signal?:NodeJS.Signals|number)=>{
+  if(signal==='SIGTERM')throw Object.assign(new Error('must-not-leak'),{code:'EPERM'});
+  return original(pid,signal);
+ });
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ try{
+  await voice.request({...request,operation:'start-local-media',payload:{mediaHandle:'a'}});
+  assert.deepEqual(await voice.shutdown(),{clean:false});assert.deepEqual(await voice.shutdown(),{clean:false});
+ }finally{await voice.close();kill.mock.restore();}
+});
+test('unknown group probe fails closed and cached cleanup does not re-probe the old identity', {skip:process.platform==='win32'},async(t)=>{
+ const original=process.kill.bind(process);let probes=0;
+ const kill=t.mock.method(process,'kill',(pid:number,signal?:NodeJS.Signals|number)=>{
+  if(signal===0){probes++;throw Object.assign(new Error('OS details excluded'),{code:'EPERM'});}
+  return original(pid,signal);
+ });
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ try{
+  await voice.request({...request,operation:'start-local-media',payload:{mediaHandle:'a'}});
+  assert.deepEqual(await voice.shutdown(),{clean:false});assert.equal(probes,1);
+  assert.deepEqual(await voice.shutdown(),{clean:false});await voice.close();assert.equal(probes,1);
+ }finally{await voice.close();kill.mock.restore();}
+});
+test('spawn failure has no group identity and never supplies clean shutdown evidence',async()=>{
+ const voice=new VoiceProcess('multimusicbot-nonexistent-executable-for-test',[],{},1000);
+ try{await assert.rejects(voice.request(request),/VOICE_EXITED/);await voice.close();assert.deepEqual(await voice.shutdown(),{clean:false});}
+ finally{await voice.close();}
+});
+test('persistent post-reap group reaches bounded uncertainty instead of clean success', {skip:process.platform==='win32'},async(t)=>{
+ const original=process.kill.bind(process);let probes=0,done=false;
+ const kill=t.mock.method(process,'kill',(pid:number,signal?:NodeJS.Signals|number)=>{
+  if(signal===0){probes++;return true;}return original(pid,signal);
+ });
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ let cleanup:Promise<{clean:boolean}>|undefined;
+ try{
+  await voice.request({...request,operation:'start-local-media',payload:{mediaHandle:'a'}});
+  cleanup=voice.shutdown();cleanup.then(()=>{done=true;},()=>{done=true;});
+  await new Promise(resolve=>setTimeout(resolve,40));assert.equal(done,false);
+  assert.deepEqual(await cleanup,{clean:false});assert.ok(probes>0);
+  const settled=probes;assert.deepEqual(await voice.shutdown(),{clean:false});await voice.close();assert.equal(probes,settled);
+ }finally{if(cleanup)await cleanup;await voice.close();kill.mock.restore();}
+});

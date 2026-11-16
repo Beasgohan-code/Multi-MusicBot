@@ -1,3 +1,4 @@
+import {waitForProcessGroupExit} from './process-group.js';
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
@@ -12,6 +13,8 @@ export class VoiceProcess extends EventEmitter {
   private readonly child: ChildProcessWithoutNullStreams;
   private pending: { request: VoiceRequest; resolve: (v: VoiceEvent) => void; reject: (e: Error) => void; timer: NodeJS.Timeout } | undefined;
   private closed = false;
+  private signalUncertain = false;
+  private groupGone = false;
   private intentional = false;
   private readonly exited: Promise<void>;
   private shutdownWork: Promise<{clean:boolean}> | undefined;
@@ -63,7 +66,10 @@ export class VoiceProcess extends EventEmitter {
     try {
       if (process.platform !== 'win32') process.kill(-this.child.pid, signal);
       else this.child.kill(signal);
-    } catch { /* Already reaped. */ }
+    } catch (error) {
+      // Permission and unknown OS failures are not evidence of absence.
+      if ((error as NodeJS.ErrnoException|null)?.code !== 'ESRCH') this.signalUncertain = true;
+    }
   }
   private fail(code: string): void {
     const notify = !this.closed && !this.intentional;
@@ -103,14 +109,9 @@ export class VoiceProcess extends EventEmitter {
       try {await this.exited;} finally {clearTimeout(timer);}
       const clean = left && !forced && this.child.exitCode === 0;
       await this.close();
-      return {clean:clean && this.processGroupGone()};
+      return {clean:clean && this.groupGone && !this.signalUncertain};
     } catch {return {clean:false};}
     finally {await this.close();}
-  }
-  private processGroupGone():boolean {
-    if (!this.child.pid || process.platform === 'win32') return false;
-    try { process.kill(-this.child.pid,0); return false; }
-    catch (error) { return (error as NodeJS.ErrnoException).code === 'ESRCH'; }
   }
   close(): Promise<void> {
     // Repeated calls must not signal a numeric process-group ID again after
@@ -125,5 +126,9 @@ export class VoiceProcess extends EventEmitter {
     this.signal('SIGTERM');
     const kill = setTimeout(() => this.signal('SIGKILL'), 2000);
     try { await this.exited; } finally { this.signal('SIGKILL'); clearTimeout(kill); }
+    // Child pipe closure alone does not prove the original group disappeared.
+    // Cache the observation inside the single-flight cleanup, never re-probe a
+    // completed child's numeric identity on subsequent shutdown calls.
+    this.groupGone = await waitForProcessGroupExit(this.child.pid);
   }
 }

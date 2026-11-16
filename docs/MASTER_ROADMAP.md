@@ -249,12 +249,23 @@ Subsequent supervisor settlement work is recorded below. Process-group cleanup/e
 A heartbeat/finish that never settles intentionally keeps the run pending. This closes early holder completion for heartbeat races, not bounded drain or full crash recovery. Terminal relay real-Mongo acceptance, serialized runtime delivery, complete runner audits and pre-persistence event loss remain open.
 
 
-### Current delivery evidence — single-flight child cleanup
+### Single-flight child cleanup checkpoint
 
 - [x] Active-branch preflight again found recreated local history at the base with implementation files untracked. Fetched the same branch, compared all 76 remote-tracked files byte-for-byte (no differences), fast-forwarded local history and restored tracking without changing file contents. Reviewed all eight Markdown documents and retained prior scope/gates.
 - [x] Three real-process RED regressions: concurrent shutdown disrupted a pending leave; repeated shutdown lost the original result; concurrent closes did not share a reap operation. Memoize exactly one shutdown result and one close promise per child. Repeated failure cannot become success.
 - [x] POSIX subprocess evidence: acknowledged shutdown reaps a same-group descendant; SIGTERM-resistant child requires the existing two-second SIGKILL escalation. PID/group disappearance checked. Real runner with in-memory queue/leases retains assistant ownership and never releases after forced exit. These fixtures do not speak to Telegram or prove native cleanup.
 - [x] Targeted transport suite 13 PASS; `npm run check` build/typecheck + 126 Node PASS, regular Python 21 PASS / 3 optional-native SKIP; locked isolated Kurigram 24 PASS; Mongo 8 SKIP without configured target. No lint script; no live Telegram/Render validation.
-- [ ] Next: test bounded process-group disappearance/error handling and classify unresolved/escaped descendant cleanup without unsafe reuse; actual native/host cleanup attestation and conservative release reconciliation remain blockers. Do not equate a completed signal/reap of the immediate child with cleanup of every possible descendant.
+- [x] Bounded post-reap process-group observation/error classification delivered below. Escaped descendants, actual native/host cleanup attestation and conservative release reconciliation remain blockers. Do not equate a completed signal/reap of the immediate child with cleanup of every possible descendant.
 
 No controller/onboarding, arbitrary media sources, decorative frontend or new cloud dependency was introduced. Real Mongo relay/CAS acceptance, durable runner audit delivery, pre-persistence terminal loss and live Phase 0 gates remain open.
+
+
+### Current delivery evidence — bounded post-reap group observation
+
+- [x] Reviewed all eight Markdown documents, branch/source/test state and preserved the current A–Q scope and safety gates. Local Git tracking was restored only after all 77 remote tracked files matched byte-for-byte; no workspace contents were discarded.
+- [x] Before implementation, observed missing-helper RED and two behavioral RED regressions: one-shot group probe rejected delayed disappearance, while a swallowed signal permission error allowed a clean result. Added monotonic bounded observation and explicit unknown/error classification; only ESRCH proves original-group absence.
+- [x] Cache group evidence with the single-flight close. A two-second post-reap observation timeout, unknown probe or non-ESRCH signal error cannot authorize clean shutdown. No detached probes, old-identity re-probe, retry playback or safe-unquarantine endpoint.
+- [x] Targeted group/transport suite 25 PASS (7 helper tests, 18 transport tests). `npm run check`: build/typecheck + 138 Node PASS; regular Python 21 PASS / 3 optional-native SKIP. Locked isolated Kurigram 24 PASS. Mongo 8 SKIP without configured service. Dependency audit 0 known production advisories; lint unavailable.
+- [ ] Next bounded code task: close new IPC admission at the shutdown boundary while retaining the internal leave/cleanup path. Host process-tree/cgroup policy, escaped descendants, verified native/remote cleanup and real Mongo/Telegram/Render acceptance remain blocked/unverified. The post-reap timer is not bounded whole-host shutdown or cleanup of an unkillable child.
+
+New OS failure cases use injected syscall outcomes with real local transport children, not privileged live EPERM/native-call experiments. Onboarding, public clone lifecycle and frontend remain gated; full clone/settings/group/plugin/web scope is retained.
