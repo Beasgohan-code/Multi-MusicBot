@@ -71,7 +71,7 @@ Shared bot-ui: semantic icons · HTML escaping · Unicode fallback · templates
 - Preserve upcoming metadata on recovery without blindly replaying an interrupted start.
 - Restrict local media to an operator-provisioned allowlist. No arbitrary tenant paths or URLs.
 
-Some rules have local tests; global crash safety still requires the remaining acceptance work.
+Voice shutdown/close now share one cleanup operation per child, preventing concurrent callers from disrupting leave acknowledgement or repeating a completed close. Local subprocess tests cover a reaped same-group descendant and SIGKILL escalation for a SIGTERM-resistant child; forced termination still retains the assistant lease. These are transport/OS fixtures, not proof of Telegram/native cleanup. Global crash safety still requires the remaining acceptance work.
 
 ## Repository layout
 

@@ -51,3 +51,71 @@ test('unexpected exit notifies controller even without pending command',async()=
  try{await voice.request(request);assert.equal(await closed,'VOICE_EXITED');assert.deepEqual(await voice.shutdown(),{clean:false});}
  finally{await voice.close();}
 });
+
+test('concurrent native shutdown callers share one leave/reap result',async()=>{
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ try{
+  await voice.request({...request,operation:'start-local-media',payload:{mediaHandle:'a'}});
+  const [first,second]=await Promise.all([voice.shutdown(),voice.shutdown()]);
+  assert.deepEqual(first,{clean:true});assert.deepEqual(second,first);
+ }finally{await voice.close();}
+});
+test('repeated shutdown preserves completed cleanup evidence without sending another leave',async()=>{
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ try{
+  await voice.request({...request,operation:'start-local-media',payload:{mediaHandle:'a'}});
+  const first=await voice.shutdown();assert.deepEqual(first,{clean:true});
+  assert.deepEqual(await voice.shutdown(),first);
+ }finally{await voice.close();}
+});
+test('concurrent close callers share the exact process reap operation',async()=>{
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ await voice.request(request);
+ const first=voice.close(),second=voice.close();
+ try{assert.equal(first,second);}finally{await Promise.all([first,second]);}
+});
+function assertProcessGone(pid:unknown):void {
+ assert.equal(typeof pid,'number');
+ assert.throws(()=>process.kill(pid as number,0),(error:unknown)=>(error as NodeJS.ErrnoException).code==='ESRCH');
+}
+test('normal native shutdown waits for same-group descendant reaping', {skip:process.platform==='win32'},async()=>{
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{VOICE_TEST_MODE:'descendant'},1000);
+ try{
+  const started=await voice.request({...request,operation:'start-local-media',payload:{mediaHandle:'a'}});
+  assert.deepEqual(await voice.shutdown(),{clean:true});
+  assertProcessGone(started.result.pid);assertProcessGone(started.result.descendantPid);assertProcessGone(-(started.result.pid as number));
+ }finally{await voice.close();}
+});
+test('SIGKILL escalation reaps a SIGTERM-resistant child but cannot authorize assistant release', {skip:process.platform==='win32'},async()=>{
+ const {PlaybackRunner}=await import('../../apps/bot-runtime/playback-runner.js');
+ const {emptyQueue,transition}=await import('../../packages/queue/state.js');
+ let state=transition(emptyQueue('123','-1001'),{type:'enqueue',track:{id:'a',title:'a',mediaHandle:'a'}});
+ let ready!:()=>void;const started=new Promise<void>(resolve=>{ready=resolve;});
+ let acquired=false,releases=0;let voice:VoiceProcess|undefined,pid:unknown;
+ const runner=new PlaybackRunner({async read(){return structuredClone(state);},async apply(revision,action){
+  assert.equal(revision,state.revision);state=transition(state,action);if(action.type==='confirmed')ready();return structuredClone(state);
+ }},{async acquire(){acquired=true;return {generation:1};},async renew(){return {generation:1};},async releaseAfterCleanup(){releases++;acquired=false;}},()=>{
+  voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{VOICE_TEST_MODE:'stubborn'},1000);
+  const send=voice.request.bind(voice);
+  voice.request=async message=>{const response=await send(message);if(message.operation==='start-local-media')pid=response.result.pid;return response;};
+  return voice;
+ },async()=>{},{assistantId:'a',holderId:'w',leaseTtlMs:10000,renewEveryMs:1000,operationTimeoutMs:3000});
+ const work=runner.runOne();const failure=assert.rejects(work,/CLEANUP_UNCERTAIN/);
+ try{
+  await started;runner.stop();await failure;
+  assert.equal(acquired,true);assert.equal(releases,0);assertProcessGone(pid);assertProcessGone(-(pid as number));
+  assert.deepEqual(await voice!.shutdown(),{clean:false});
+  await assert.rejects(voice!.request(request),/VOICE_CLOSED/);
+ }finally{runner.stop();if(voice)await voice.close();await work.catch(()=>{});}
+});
+test('close escalates after ignored SIGTERM and awaits immediate-child reap', {skip:process.platform==='win32'},async()=>{
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{VOICE_TEST_MODE:'stubborn'},1000);
+ const observed=await voice.request(request);let done=false;
+ const closing=voice.close();closing.then(()=>{done=true;},()=>{done=true;});
+ try{
+  await new Promise(resolve=>setTimeout(resolve,75));
+  assert.equal(done,false);assert.doesNotThrow(()=>process.kill(observed.result.pid as number,0));
+  await closing;assertProcessGone(observed.result.pid);assertProcessGone(-(observed.result.pid as number));
+  assert.deepEqual(await voice.shutdown(),{clean:false});assert.equal(voice.close(),closing);
+ }finally{await closing;}
+});

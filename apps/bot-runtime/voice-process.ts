@@ -14,6 +14,8 @@ export class VoiceProcess extends EventEmitter {
   private closed = false;
   private intentional = false;
   private readonly exited: Promise<void>;
+  private shutdownWork: Promise<{clean:boolean}> | undefined;
+  private closeWork: Promise<void> | undefined;
   constructor(command: string, args: string[], secrets: Record<string, string>, private readonly timeoutMs = 15000) {
     super();
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000) throw new Error('VOICE_CONFIG_INVALID');
@@ -84,7 +86,12 @@ export class VoiceProcess extends EventEmitter {
       this.child.stdin.write(frame, error => { if (error) this.fail('VOICE_EXITED'); });
     });
   }
-  async shutdown(): Promise<{clean:boolean}> {
+  shutdown(): Promise<{clean:boolean}> {
+    // One leave/exit/reap attempt per child: concurrent callers must not close
+    // the transport underneath each other's native acknowledgement.
+    return this.shutdownWork ??= this.shutdownOnce();
+  }
+  private async shutdownOnce(): Promise<{clean:boolean}> {
     let left = false, forced = false;
     this.intentional = true;
     try {
@@ -105,7 +112,12 @@ export class VoiceProcess extends EventEmitter {
     try { process.kill(-this.child.pid,0); return false; }
     catch (error) { return (error as NodeJS.ErrnoException).code === 'ESRCH'; }
   }
-  async close(): Promise<void> {
+  close(): Promise<void> {
+    // Repeated calls must not signal a numeric process-group ID again after
+    // this child's reap (that ID can eventually be reused by the OS).
+    return this.closeWork ??= this.closeOnce();
+  }
+  private async closeOnce(): Promise<void> {
     this.intentional = true;
     this.closed = true;
     if (this.pending) { clearTimeout(this.pending.timer); this.pending.reject(new Error('VOICE_CLOSED')); this.pending = undefined; }

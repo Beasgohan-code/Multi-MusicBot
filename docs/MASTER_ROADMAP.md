@@ -239,11 +239,22 @@ Verification: `npm run check` build/typecheck + **112 Node PASS**, regular Pytho
 Subsequent supervisor settlement work is recorded below. Process-group cleanup/escalation and unknown native-holder quarantine remain required. Run terminal relay/CAS tests on a real configured Mongo before claiming persistence acceptance. Serialized runtime relay scheduling, complete runner audit delivery, pre-persistence event loss, host-crash cleanup and actual Phase 0 acceptance remain open. No factory onboarding before these gates.
 
 
-### Current delivery evidence — supervisor late heartbeat settlement
+### Supervisor late heartbeat settlement checkpoint
 
 - [x] Re-read all eight repository Markdown files, inspect clean active-branch status/history before edits, and review supervisor/transport source. Preserve full multi-bot/clone/settings/group/plugin/web scope and live acceptance gates.
 - [x] Five observed RED regressions: initial and active heartbeat late success/rejection, plus runtime cleanup failure while heartbeat remains pending. Fix by retaining and draining the exact heartbeat promise before holder finish, without delaying prompt work abort or accepting late readiness.
 - [x] Three additional compatibility tests preserve timely in-flight heartbeat success and awaited late finish persistence success/rejection, with no retry. Supervisor suite 16 PASS; total Node 120 PASS. Build/typecheck PASS; regular Python 21 PASS / 3 optional-native SKIP; isolated Kurigram 24 PASS; real Mongo 8 SKIP without configured target; lint absent. Deferred registry doubles are not real network/database crash evidence.
-- [ ] Next bounded task: reproduce and harden process-group cleanup/escalation with real local subprocess fixtures; verify unknown native groups never authorize assistant release. No live Telegram/Render playback, host cleanup attestation, automated safe-unquarantine or clone onboarding is claimed.
+- [x] Local subprocess cleanup concurrency/escalation slice delivered below; full unknown native-group/host cleanup remains unverified. No live Telegram/Render playback, host cleanup attestation, automated safe-unquarantine or clone onboarding is claimed.
 
 A heartbeat/finish that never settles intentionally keeps the run pending. This closes early holder completion for heartbeat races, not bounded drain or full crash recovery. Terminal relay real-Mongo acceptance, serialized runtime delivery, complete runner audits and pre-persistence event loss remain open.
+
+
+### Current delivery evidence — single-flight child cleanup
+
+- [x] Active-branch preflight again found recreated local history at the base with implementation files untracked. Fetched the same branch, compared all 76 remote-tracked files byte-for-byte (no differences), fast-forwarded local history and restored tracking without changing file contents. Reviewed all eight Markdown documents and retained prior scope/gates.
+- [x] Three real-process RED regressions: concurrent shutdown disrupted a pending leave; repeated shutdown lost the original result; concurrent closes did not share a reap operation. Memoize exactly one shutdown result and one close promise per child. Repeated failure cannot become success.
+- [x] POSIX subprocess evidence: acknowledged shutdown reaps a same-group descendant; SIGTERM-resistant child requires the existing two-second SIGKILL escalation. PID/group disappearance checked. Real runner with in-memory queue/leases retains assistant ownership and never releases after forced exit. These fixtures do not speak to Telegram or prove native cleanup.
+- [x] Targeted transport suite 13 PASS; `npm run check` build/typecheck + 126 Node PASS, regular Python 21 PASS / 3 optional-native SKIP; locked isolated Kurigram 24 PASS; Mongo 8 SKIP without configured target. No lint script; no live Telegram/Render validation.
+- [ ] Next: test bounded process-group disappearance/error handling and classify unresolved/escaped descendant cleanup without unsafe reuse; actual native/host cleanup attestation and conservative release reconciliation remain blockers. Do not equate a completed signal/reap of the immediate child with cleanup of every possible descendant.
+
+No controller/onboarding, arbitrary media sources, decorative frontend or new cloud dependency was introduced. Real Mongo relay/CAS acceptance, durable runner audit delivery, pre-persistence terminal loss and live Phase 0 gates remain open.
