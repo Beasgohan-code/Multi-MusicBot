@@ -176,3 +176,40 @@ test('persistent post-reap group reaches bounded uncertainty instead of clean su
   const settled=probes;assert.deepEqual(await voice.shutdown(),{clean:false});await voice.close();assert.equal(probes,settled);
  }finally{if(cleanup)await cleanup;await voice.close();kill.mock.restore();}
 });
+test('shutdown synchronously fences public IPC including a forged leave while internal leave completes',async()=>{
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ try{
+  await voice.request({...request,operation:'start-local-media',payload:{mediaHandle:'a'}});
+  const shutdown=voice.shutdown();
+  await assert.rejects(voice.request(request),/VOICE_CLOSED/);
+  await assert.rejects(voice.request({...request,operation:'leave',payload:{}}),/VOICE_CLOSED/);
+  assert.deepEqual(await shutdown,{clean:true});
+ }finally{await voice.close();}
+});
+test('shutdown fences public IPC after the caller yields a microtask',async()=>{
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ try{
+  await voice.request({...request,operation:'start-local-media',payload:{mediaHandle:'a'}});
+  const shutdown=voice.shutdown();
+  await Promise.resolve();
+  await assert.rejects(voice.request({...request,operation:'pause',payload:{}}),/VOICE_CLOSED/);
+  assert.deepEqual(await shutdown,{clean:true});
+ }finally{await voice.close();}
+});
+test('shutdown during outstanding IPC rejects pending work and never invents clean evidence',async()=>{
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ try{
+  const pending=assert.rejects(voice.request(request),/VOICE_CLOSED/);
+  const shutdown=voice.shutdown();
+  await assert.rejects(voice.request(request),/VOICE_CLOSED/);
+  await pending;assert.deepEqual(await shutdown,{clean:false});
+  assert.deepEqual(await voice.shutdown(),{clean:false});
+ }finally{await voice.close();}
+});
+test('unbound child shutdown permanently closes admission and cannot claim native leave',async()=>{
+ const voice=new VoiceProcess(process.execPath,['tests/fixtures/voice-cleanup.cjs'],{},1000);
+ try{
+  const shutdown=voice.shutdown();await assert.rejects(voice.request(request),/VOICE_CLOSED/);
+  assert.deepEqual(await shutdown,{clean:false});assert.equal(voice.shutdown(),shutdown);
+ }finally{await voice.close();}
+});

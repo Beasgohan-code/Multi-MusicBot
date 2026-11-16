@@ -201,6 +201,33 @@ The tool **does not confirm cleanup, free an assistant or restart a worker**. Ex
 
 Render is the preferred worker-hosting candidate, pending controlled measurements of CPU, memory, startup, playback and cleanup. Python voice requires a long-running process host; a serverless web deployment is not a replacement. No ready-to-deploy Render claim is made.
 
+### Docker / private Render feasibility test
+
+A [Dockerfile](Dockerfile) now packages the **operator-only playback runner**, not a complete Telegram command bot. It includes Node 22, Python 3.11, the locked Kurigram/native baseline, FFmpeg and `tini`, and runs as UID 10001. No HTTP port or public health endpoint is supplied. The image has **not been built in this workspace** (Docker engine unavailable); Render/native compatibility is unverified.
+
+Build and check on a Docker-capable machine before provisioning secrets:
+
+```sh
+docker build --pull -t multimusicbot-phase0 .
+docker run --rm multimusicbot-phase0 node --version
+docker run --rm multimusicbot-phase0 /opt/voice/bin/python scripts/check_voice_compatibility.py --client kurigram
+docker run --rm multimusicbot-phase0 ffmpeg -version
+```
+
+After provisioning the database records described above, use an ignored, locally protected environment file (never commit/upload it as source), and read-only permitted fixtures:
+
+```sh
+docker run --rm --env-file .env.phase0 \
+  --mount type=bind,src=/absolute/path/to/fixtures,dst=/media,readonly \
+  multimusicbot-phase0 node dist/scripts/run-playback.js --enqueue fixture-a
+```
+
+Set `VOICE_MEDIA_ROOT=/media`, `VOICE_MEDIA_HANDLES={"fixture-a":"audio-a.wav"}` and all required execution bindings from `.env.example`. Fixtures must be readable by UID 10001. `.dockerignore` excludes media and secrets: provision media separately, do not expect local files to appear in the image. The runner does not download songs, create calls or register accounts.
+
+For Render, use the repository root/Dockerfile on the active branch and a **private, operator-approved Docker worker/job**, not a web service that waits for an HTTP port. Confirm currently available service options/costs in Render before purchasing. Supply secrets only through the service secret store, restricted test Mongo access, and separately provisioned read-only fixtures. Run one call with a spare assistant/test group, record audible output and cleanup, CPU/memory/startup/native versions, and stop/suspend the service after the test. See [the actual Render acceptance gate](docs/PHASE_0_ACCEPTANCE.md#actual-render-gate--cannot-be-replaced-by-local-tests).
+
+**Restart warning:** this runner exits when its bounded queue drains. A continuously restarted worker is not an always-on bot. Do not bake `--enqueue` into an automatically restarted start command: it is an admission request, not an idempotent deployment setting. Prefer a controlled one-off run; if the hosting mode cannot prevent repeated execution, do not attach credentials/start it yet. Never reset grants, quarantine or leases to make a restarted deployment proceed. No auto-deploy blueprint is included until restart/reconciliation gates are verified. A successful image build alone does not complete Phase 0.
+
 Before a private alpha: finish abandoned-lease reconciliation, cancellation/late-settlement handling, atomic transition auditing, authenticated controller lifecycle and restart policies; pass real Mongo failure scenarios, actual Telegram queue/recovery/session-release tests and controlled Render resource tests.
 
 ## Security and references

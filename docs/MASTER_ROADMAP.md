@@ -260,12 +260,21 @@ A heartbeat/finish that never settles intentionally keeps the run pending. This 
 No controller/onboarding, arbitrary media sources, decorative frontend or new cloud dependency was introduced. Real Mongo relay/CAS acceptance, durable runner audit delivery, pre-persistence terminal loss and live Phase 0 gates remain open.
 
 
-### Current delivery evidence — bounded post-reap group observation
+### Bounded post-reap group observation checkpoint
 
 - [x] Reviewed all eight Markdown documents, branch/source/test state and preserved the current A–Q scope and safety gates. Local Git tracking was restored only after all 77 remote tracked files matched byte-for-byte; no workspace contents were discarded.
 - [x] Before implementation, observed missing-helper RED and two behavioral RED regressions: one-shot group probe rejected delayed disappearance, while a swallowed signal permission error allowed a clean result. Added monotonic bounded observation and explicit unknown/error classification; only ESRCH proves original-group absence.
 - [x] Cache group evidence with the single-flight close. A two-second post-reap observation timeout, unknown probe or non-ESRCH signal error cannot authorize clean shutdown. No detached probes, old-identity re-probe, retry playback or safe-unquarantine endpoint.
 - [x] Targeted group/transport suite 25 PASS (7 helper tests, 18 transport tests). `npm run check`: build/typecheck + 138 Node PASS; regular Python 21 PASS / 3 optional-native SKIP. Locked isolated Kurigram 24 PASS. Mongo 8 SKIP without configured service. Dependency audit 0 known production advisories; lint unavailable.
-- [ ] Next bounded code task: close new IPC admission at the shutdown boundary while retaining the internal leave/cleanup path. Host process-tree/cgroup policy, escaped descendants, verified native/remote cleanup and real Mongo/Telegram/Render acceptance remain blocked/unverified. The post-reap timer is not bounded whole-host shutdown or cleanup of an unkillable child.
+- [x] New IPC admission at shutdown is fenced in the following checkpoint while retaining the internal leave/cleanup path. Host process-tree/cgroup policy, escaped descendants, verified native/remote cleanup and real Mongo/Telegram/Render acceptance remain blocked/unverified. The post-reap timer is not bounded whole-host shutdown or cleanup of an unkillable child.
 
 New OS failure cases use injected syscall outcomes with real local transport children, not privileged live EPERM/native-call experiments. Onboarding, public clone lifecycle and frontend remain gated; full clone/settings/group/plugin/web scope is retained.
+
+
+### Current delivery evidence — shutdown admission and Docker test image
+
+- [x] Preserved the interrupted shutdown increment: two RED admission regressions then synchronous public admission fence/private internal leave; four added tests cover normal shutdown, microtask calls, pending IPC and unbound child. No caller bypass for a forged leave operation.
+- [x] User requested Dockerfile/complete bot. Added multi-stage operator image, selected native lock, FFmpeg, non-root user and tini signal forwarding; compiled Node entrypoint needs no dev dependencies. Three static container contract tests observed RED before files existed. Added `.dockerignore` and existing README Docker/Render instructions including non-idempotent enqueue/restart warning. No paid resource or deployment created.
+- [x] Reviewed all eight Markdown plans and retained full bot/factory/multiple-bot/settings/plugins/groups/web scope. `npm run check`: build/typecheck and 145 Node PASS; regular Python 21 PASS / 3 optional-native SKIP; isolated Kurigram 24 PASS; Mongo 8 SKIP without target; no lint script.
+- [ ] Docker image build/native smoke/Render test remains NOT RUN: no Docker engine here. Static contract tests do not establish OS ABI/FFmpeg/Telegram compatibility. Docker tags/OS packages are not immutable digests; record resolved versions when building. Provision fixtures/credentials/database records outside source.
+- [ ] Next gate: build/run the container on an approved Docker host and perform disposable real-Mongo acceptance, then operator-controlled live Phase 0. Runtime lifecycle/restart reconciliation, host/escaped-descendant cleanup, complete audit coverage, authenticated controller/factory, Telegram command UI and subsequent required scope remain unfinished. The image is not a complete bot; onboarding remains disabled.

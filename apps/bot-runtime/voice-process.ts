@@ -13,6 +13,7 @@ export class VoiceProcess extends EventEmitter {
   private readonly child: ChildProcessWithoutNullStreams;
   private pending: { request: VoiceRequest; resolve: (v: VoiceEvent) => void; reject: (e: Error) => void; timer: NodeJS.Timeout } | undefined;
   private closed = false;
+  private shuttingDown = false;
   private signalUncertain = false;
   private groupGone = false;
   private intentional = false;
@@ -79,6 +80,10 @@ export class VoiceProcess extends EventEmitter {
     if (notify) this.emit('voiceClosed', code);
   }
   async request(value: VoiceRequest): Promise<VoiceEvent> {
+    if (this.closed || this.shuttingDown) throw new Error('VOICE_CLOSED');
+    return this.sendRequest(value);
+  }
+  private async sendRequest(value: VoiceRequest): Promise<VoiceEvent> {
     const request = validateRequest(value);
     if (this.closed) throw new Error('VOICE_CLOSED');
     if (this.pending) throw new Error('VOICE_BUSY');
@@ -95,6 +100,7 @@ export class VoiceProcess extends EventEmitter {
   shutdown(): Promise<{clean:boolean}> {
     // One leave/exit/reap attempt per child: concurrent callers must not close
     // the transport underneath each other's native acknowledgement.
+    this.shuttingDown = true;
     return this.shutdownWork ??= this.shutdownOnce();
   }
   private async shutdownOnce(): Promise<{clean:boolean}> {
@@ -102,7 +108,7 @@ export class VoiceProcess extends EventEmitter {
     this.intentional = true;
     try {
       if (this.closed || !this.binding || this.pending) return {clean:false};
-      const event = await this.request({...this.binding, requestId:randomUUID(), expectedRevision:this.observedRevision, operation:'leave',payload:{}});
+      const event = await this.sendRequest({...this.binding, requestId:randomUUID(), expectedRevision:this.observedRevision, operation:'leave',payload:{}});
       left = event.eventType === 'left' && event.result.state === 'idle';
       this.child.stdin.end();
       const timer = setTimeout(()=>{forced=true;this.signal('SIGKILL');},2000);
