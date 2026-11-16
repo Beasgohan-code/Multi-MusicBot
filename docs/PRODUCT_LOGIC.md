@@ -1,6 +1,6 @@
 # Product logic and operational feature specification
 
-Status: proposed design, not implemented. Extends MASTER_ROADMAP.md without changing the TypeScript control plane / Python voice boundary or expanding Phase 0. Suggested limits below are configurable launch defaults, not measured capacity promises.
+Status: target product specification; foundational queue/ownership behavior is partially implemented and offline-tested. Feature rows are not claims of working handlers. Extends MASTER_ROADMAP.md without changing the TypeScript control plane / Python voice boundary or expanding Phase 0. Suggested limits below are configurable launch defaults, not measured capacity promises.
 
 ## 1. New features worth building
 
@@ -113,7 +113,7 @@ Reserve → commit/settle or expire/cancel. Atomic reservations prevent concurre
 
 ## 7. Suggested bounded launch settings
 
-These are provisional configuration values requiring tests: one bot/owner, one active call platform-wide, 20 queued tracks/group, 3 pending requests/member, 30-minute finite track maximum, one prefetch slot, 3 provider failures before breaker opens for 60 seconds, one half-open probe, 3 consecutive preparation failures before progression pauses. Download byte/disk/FFmpeg limits and protocol timeouts must be set after G0 measurements; unset critical limits fail config validation rather than mean unlimited.
+These are provisional configuration values requiring tests: multiple bots/owner within persisted plan limits and measured rollout capacity, one active call platform-wide, 20 queued tracks/group, 3 pending requests/member, 30-minute finite track maximum, one prefetch slot, 3 provider failures before breaker opens for 60 seconds, one half-open probe, 3 consecutive preparation failures before progression pauses. Download byte/disk/FFmpeg limits and protocol timeouts must be set after G0 measurements; unset critical limits fail config validation rather than mean unlimited.
 
 Rate-limit scopes include actor+group, bot, provider and platform. Request cooldown and provider health state must not leak between unrelated tenants except documented global provider capacity protection. Counters/buffers/caches are bounded. Coalesce player-card edits; show progress on demand or at a modest configurable cadence, not every second for every group.
 
@@ -135,7 +135,7 @@ Rate-limit scopes include actor+group, bot, provider and platform. Request coold
 14. Group migrates chat ID: old jobs cannot modify a separately configured destination; rights/setup revalidated.
 15. Database outage and recovery: no stale-lease parallel stream or delayed surprise moderation.
 
-Each scenario requires automated policy/contract coverage and relevant real Telegram verification. Simulators do not prove audibility or Telegram permission behavior. No tests in this specification have been executed.
+Each scenario requires automated policy/contract coverage and relevant real Telegram verification. Simulators do not prove audibility or Telegram permission behavior. Some foundational cases have offline contract coverage recorded in PHASE_0_ACCEPTANCE.md; these scenarios as full real-service acceptance remain unverified.
 
 ## 9. Scope discipline
 

@@ -1,6 +1,6 @@
 # Reference comparison and integration decisions
 
-Inspection: 2026-11-15. Planning only; no packages installed, upstream tests run, or live Telegram/provider calls performed. Evidence is GitHub metadata, manifests, README excerpts and the specific source files noted below. README claims are not independently verified platform capabilities.
+Inspection: 2026-11-15. Reference inspection only; no upstream tests or live Telegram/provider calls performed. Our isolated compatibility checks and independent implementation are recorded in PHASE_0_ACCEPTANCE.md. Evidence is GitHub metadata, manifests, README excerpts and the specific source files noted below. README claims are not independently verified platform capabilities.
 
 ## Identified sources
 
@@ -36,7 +36,7 @@ Playeon also has a separately inspected lounge repository; see the pinned review
 
 ## Architecture direction
 
-Based on the latest Python-first proposal: TypeScript controller, worker runtimes, moderation and authoritative queues; Python/PyTgCalls voice adapter. Evaluate Wzgram as an isolated MTProto compatibility candidate against a Kurigram baseline; do not promise Wzgram support until measured. Rich presentation remains on the bot-command side, independent of Python voice. TypeTube is an optional Node media-provider adapter behind our own validated Track/Stream contracts. Redis, billing, a web dashboard and advanced widgets are not initial dependencies.
+Based on the latest Python-first proposal: TypeScript controller, worker runtimes, moderation and authoritative queues; Python/PyTgCalls voice adapter. Isolated tests selected Kurigram 2.2.26 with PyTgCalls 2.3.3 / ntgcalls 2.2.5; Wzgram 3.1.7 failed compatibility and is not selected. Rich presentation remains on the bot-command side, independent of Python voice. TypeTube is an optional Node media-provider adapter behind our own validated Track/Stream contracts. Redis, billing, a web dashboard and advanced widgets are not initial dependencies.
 
 The latest MASTER_ROADMAP.md and ARCHITECTURE.md now adopt Python-first from the subsequent user blueprint; older Node-first notes are superseded. Regardless of selection, use the same PHASE_0_ACCEPTANCE.md gate.
 

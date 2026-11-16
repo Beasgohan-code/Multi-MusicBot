@@ -1,14 +1,14 @@
 # Multi-MusicBot — Multi-tenant platform plan
 
-Status: revised proposal; no application code built. Awaiting approval.
+Status: approved direction with a partially implemented Phase 0 prototype; not production-ready. Current evidence and blockers are maintained in MASTER_ROADMAP.md and PHASE_0_ACCEPTANCE.md. No repeated approval is required for bounded reversible increments.
 
 ## Current planning baseline
 
-Repository: **Beasgohan-code/Multi-MusicBot**. Planning only: no application code, installed voice stack, cloud deployment or live test results.
+Repository: **Beasgohan-code/Multi-MusicBot**. Offline-tested TypeScript/Python implementation exists. No deployed platform or verified live Telegram/Render playback exists.
 
 1. [Master roadmap](docs/MASTER_ROADMAP.md): latest A–Q feature scope, staged release gates, data/infrastructure constraints and incomplete-input note.
-2. [Architecture](docs/ARCHITECTURE.md): TypeScript/Telegraf controller, workers, moderation and queue authority; **Python/PyTgCalls voice first**, isolated Wzgram compatibility evaluation against a Kurigram baseline. Earlier Node-first preferences are superseded.
-3. [Phase 0 acceptance](docs/PHASE_0_ACCEPTANCE.md): local permitted-audio and actual Render tests, all unrun.
+2. [Architecture](docs/ARCHITECTURE.md): TypeScript/Telegraf controller, workers, moderation and queue authority; **Python/PyTgCalls voice first**; Kurigram selected after isolated Wzgram compatibility failure. Earlier Node-first preferences are superseded.
+3. [Phase 0 acceptance](docs/PHASE_0_ACCEPTANCE.md): offline evidence plus local permitted-audio and actual Render acceptance; live gates unrun.
 4. [Source comparison](docs/SOURCE_COMPARISON.md) and [Videl0 reconciliation](docs/VIDEL0_RECONCILIATION.md): evidence and adaptation requirements, not live validation.
 
 Launch remains private and bounded: main+worker moderation, secure clone management, core music and explicit upcoming-track recovery; one initial assistant/call. Full dashboard/Mini App, lounge, billing, advanced plugins and distributed infrastructure are later release gates, not rejected product goals. No invisible expansion into Redis or object storage before needed.
@@ -21,7 +21,7 @@ See [Product logic](docs/PRODUCT_LOGIC.md) for concrete algorithms, state machin
 
 One main controller manages multiple branded worker bots. Each worker provides Telegram group management and optional voice-chat music. Owners register bots, configure them, see status, and manage their groups through Telegram menus.
 
-Confirmed: Node.js + TypeScript, MongoDB, Render preference, and a spare assistant user account available. Proposed defaults: invite-only onboarding, one worker per owner, one simultaneous music call platform-wide until tested.
+Confirmed: Node.js + TypeScript, MongoDB, Render preference, and a spare assistant user account available. Target: multiple bots per owner within persisted plan limits. Initial rollout is invite-only and measured-capacity-limited, with one simultaneous music call until tested; onboarding is currently disabled.
 
 Reference reviewed: https://github.com/abhinai2244/Multi-FileStoreBot — README, worker_bot/engine.py, main_bot/plugins/create_bot.py. Useful ideas: Create Bot/My Bots menus, dynamic client registry, per-owner settings, lifecycle controls, quotas, and persisted worker registration. This is architectural inspiration, not a code port. No explicit license was found through the repository license endpoint or root listing; do not copy implementation/assets without establishing permission. File storage, monetized shorteners, and force-subscription are not included in this product unless separately requested.
 
@@ -116,12 +116,12 @@ Render paid Docker background worker (initial single replica)
   ├── Controller + worker supervisor (Telegraf long polling)
   ├── Shared feature modules + tenant-aware authorization
   ├── Durable jobs, quotas, rate limiting, audit
-  └── Supervised voice child process (GramJS + candidate native bridge)
+  └── Supervised Python voice child (Kurigram + PyTgCalls)
               │                         │
         MongoDB Atlas            FFmpeg + Telegram calls
 ```
 
-Logical worker bots initially share a Node process; they are not dedicated Render services. Each gets its own Telegraf instance and bounded work queues. Per-worker startup failures are contained, but a host/process failure affects all hosted bots; do not claim hard isolation. The voice subprocess boundary needs an explicit IPC contract and feasibility test before choosing the native library.
+Logical worker bots initially share a Node process; they are not dedicated Render services. Each gets its own Telegraf instance and bounded work queues. Per-worker startup failures are contained, but a host/process failure affects all hosted bots; do not claim hard isolation. Private framed IPC and the Kurigram/PyTgCalls baseline exist and are offline-tested; actual call/host feasibility remains unverified.
 
 Render is a candidate, not a proven voice host: verify native Linux binaries, outbound Telegram/WebRTC networking, CPU/memory, and reconnect behavior on the actual paid worker. If this fails, use a voice-capable VPS or separate voice host rather than weakening security or promising unsupported playback. No free-tier keepalive tricks. Pricing and capacity must be checked before purchase.
 
@@ -159,7 +159,7 @@ Timed unmute/unban jobs use durable scheduling and idempotent claims, not TTL de
 - Operator panels show masked tokens only. Never implement a command that dumps raw tokens or sessions.
 - Least-privilege Atlas user, TLS, restricted network access compatible with deployment, no credentials in render.yaml.
 - Tenant owners manage their bots, not all group moderation unless they are also group admins. DJs control music, not bans. Platform operators suspend services; group actions require group authority.
-- Start invite-only; default one bot per owner, a small platform bot cap, one active music call, capped queue/import length and track duration. Set actual deployment limits after load testing.
+- Start invite-only; support multiple bots per owner within plan limits and a measured platform bot cap, one active music call, capped queue/import length and track duration. Set actual deployment limits after load testing.
 - Rate limits per user/chat/bot and shared outbound limits, retry_after handling, bounded broadcasts/jobs, CPU and download budgets.
 - SSRF defense for media URLs: protocol/host allowlists where feasible, DNS/private-IP and redirect checks, restricted downloader egress, no user-controlled FFmpeg flags or shell interpolation.
 - Run media children without elevated privileges; execution timeouts, memory/process limits where supported, temporary-file cleanup and disk cap.
@@ -191,7 +191,7 @@ render.yaml
 .env.example
 ```
 
-Stack: Node.js 24 LTS + TypeScript ESM, Telegraf, official MongoDB driver, GramJS, candidate tgcalls-js/ntgcalls bridge, FFmpeg, yt-dlp, structured redacted logging. Pin dependencies after compatibility checks; do not assume the candidate bridge has Python ecosystem feature parity.
+Stack: Node.js 22+ (24 requires validation) + TypeScript ESM, Telegraf, official MongoDB driver, Python/Kurigram 2.2.26 + PyTgCalls 2.3.3 + ntgcalls 2.2.5, FFmpeg and redacted logging. Native versions are pinned in the isolated baseline lockfile. Provider extraction such as yt-dlp remains separately gated.
 
 ## 10. Delivery gates
 
@@ -206,7 +206,7 @@ Stack: Node.js 24 LTS + TypeScript ESM, Telegraf, official MongoDB driver, GramJ
 
 Automated tests: policy matrix, encryption/tamper detection, queue transitions, per-chat concurrency, lifecycle races, job idempotency, quota races, tenant isolation, redaction, media URL rejection. Mock Telegram for CI. Real moderation and voice tests require a dedicated Telegram test group and credentials configured outside chat.
 
-## 11. Proposed launch defaults to approve
+## 11. Launch direction and remaining gates
 
 1. **Main bot:** controller first; optionally enable moderation/music in its own groups via the same modules (no self-registration).
 2. **Worker access:** invite-only initially, later open registration with abuse controls.
@@ -214,4 +214,4 @@ Automated tests: policy matrix, encryption/tamper detection, queue transitions, 
 4. **Assistant:** shared operator-managed spare account, one active call initially; expand only after tests.
 5. **Product scope:** inspired by the reference's bot-management UX; no FileStore functionality unless explicitly added.
 
-Next: approve or change these defaults, then begin Phase 0. No application implementation or cloud resources have been created.
+Continue Phase 0 safety implementation under the existing NEXT policy: inspect all repository Markdown and code, tests first, verify, update existing docs, review secrets/concurrency, commit and push the active branch. Current implementation includes fenced ownership, authenticated operator supervision, atomic receipts and bounded operator relay; these do not authorize onboarding. No cloud resources have been provisioned.

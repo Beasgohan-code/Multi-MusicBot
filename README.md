@@ -28,8 +28,8 @@ The intended onboarding flow is:
 | Control plane | Configuration and encrypted-secret repository foundations | Telegraf registration, owner authentication, menus and controller wiring |
 | Clone runtime | Grant-authenticated registry and operator supervisor; playback entrypoint | Complete lifecycle supervisor, readiness, crash reconciliation and restart policy |
 | Playback | One-track Python children; correlated events; persisted queue controls; guarded leases and renewal | Real Telegram validation and complete failure acceptance |
-| Recovery | Upcoming-track metadata preservation; uncertain-cleanup quarantine | Trusted abandoned-lease reconciliation and durable terminal journal |
-| Audit | Safe playback-event sink; atomic ownership-transition outbox and replay-safe relay | Real Mongo verification, terminal queue journal and full transition coverage |
+| Recovery | Upcoming-track metadata preservation; uncertain-cleanup quarantine | Trusted native cleanup/release reconciliation and real persistence/crash acceptance |
+| Audit | Safe playback-event sink; atomic ownership outbox/relay and terminal queue receipts/operator relay | Real Mongo verification, complete runner audit relay and full transition coverage |
 | Telegram UI | Videl0 emoji catalogue, safe renderers, shared message templates | Wiring into future Telegram handlers and eligibility verification |
 | Web, billing, plugins, lounge | Product scope in existing docs | Deferred; no functioning dashboard or subscription service |
 
@@ -193,9 +193,9 @@ Required execution bindings include `WORKER_GRANT`, `VOICE_BOT_ID`, `VOICE_CHAT_
 
 ### Ownership maintenance (trusted operators only)
 
-`npm run phase0:maintain` uses only `MONGODB_URI`, `MONGODB_DB` and `VOICE_BOT_ID`. Database credentials authorize this restricted local tool; it is not a tenant API. It drains pending ownership audit events, scans at most 100 expired workers and 100 expired assistants for that bot, quarantines matching holders and drains events again. Run further batches if needed. Output contains counts, never credentials or raw database errors.
+`npm run phase0:maintain` uses only `MONGODB_URI`, `MONGODB_DB` and `VOICE_BOT_ID`. Database credentials authorize this restricted local tool; it is not a tenant API. It archives/acknowledges at most 100 pending terminal receipts for that bot, drains pending ownership audit events, scans at most 100 expired workers and 100 expired assistants, quarantines matching holders and drains ownership events again. Run further batches if needed. Output contains counts, never credentials or raw database errors.
 
-The tool **does not confirm cleanup, free an assistant or restart a worker**. Expiry is not proof that a remote native process is gone. Malformed events and failed archive writes remain pending. Ownership mutations stop when 100 pending events fill a document, rather than losing audit history. During operator playback the supervisor also relays ownership events on heartbeat and finish. There is no independently deployed background maintenance scheduler yet.
+The tool **does not confirm cleanup, free an assistant or restart a worker**. Expiry is not proof that a remote native process is gone. Malformed events and failed archive writes remain pending. Ownership mutations stop when 100 pending events fill a document, rather than losing audit history. During operator playback the supervisor also relays ownership events on heartbeat and finish. Terminal archives use tenant+chat+receipt-revision identity; acknowledgement increments queue revision so a stale queue replacement cannot resurrect receipts. Concurrent queue changes may return a conflict: rerun a bounded batch from a fresh read, never replay playback. Prefer maintenance while playback is drained to avoid interrupting an active CAS. There is no independently deployed background maintenance scheduler yet. Pending journals still fail closed at 100 if maintenance is not run; never clear them manually.
 
 ## Deployment and release gates
 

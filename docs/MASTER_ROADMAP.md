@@ -4,11 +4,19 @@ Status: Phase 0 implementation in progress; live feasibility gates remain unveri
 
 ## Direction and authority
 
-A multi-user Telegram bot-hosting platform with group management, music, and an eventual web/Mini App control surface. Reference projects inform behavior; they do not establish working integrations. Playeon's separate lounge implementation has not been identified/inspected; lounge ideas below are product requirements, not verified upstream capabilities.
+A multi-user Telegram bot-hosting platform with group management, music, and an eventual web/Mini App control surface. Reference projects inform behavior; they do not establish working integrations. Playeon's lounge was inspected at the pinned revision in SOURCE_COMPARISON.md; its restrictive license forbids an assumed commercial code port. Generic independently implemented ideas remain gated, and upstream performance claims are unverified.
 
 This document governs scope/release ordering; ARCHITECTURE.md governs runtime boundaries; PHASE_0_ACCEPTANCE.md governs initial validation. SOURCE_COMPARISON.md and VIDEL0_RECONCILIATION.md record research, not deployment evidence. Earlier Node-first voice preferences are superseded by the latest Python-first blueprint.
 
-Target: TypeScript/Telegraf control plane + Python/PyTgCalls voice service. Evaluate Wzgram in isolation for MTProto compatibility, with Kurigram as a baseline/alternative. Select one client per assistant environment, not both Pyrogram namespace providers together. No package/version is accepted merely because a README calls it compatible.
+Target: TypeScript/Telegraf control plane + Python/PyTgCalls voice service. Isolated testing selected Kurigram 2.2.26 / PyTgCalls 2.3.3 / ntgcalls 2.2.5; Wzgram 3.1.7 failed compatibility. Select one client per assistant environment, not both Pyrogram namespace providers together. No package/version is accepted merely because a README calls it compatible.
+
+## Current continuation contract and priority
+
+Each NEXT audits **all eight repository Markdown files** (README, PLAN and docs), Git and actual source/tests; demonstrates RED before behavior changes; implements one bounded dependency-safe increment; runs targeted/wider checks; reviews secrets, tenancy and races; updates existing docs; commits/pushes only the active branch and reports exact evidence/skips. Do not create repetitive audit documents or TODO placeholders. Missing services are blockers, never passes.
+
+Current foundation: authenticated operator supervisor, exact-holder/generation lease guards, quarantine, atomic ownership outbox/relay, late acquire/renew/queue/release/shutdown settlement, truthful terminal acknowledgements, atomic terminal receipts and trusted operator archive-before-ack relay. None proves audible playback or safe host-crash takeover.
+
+Next safety priority: terminal relay acceptance on real Mongo, late supervisor/host process cleanup and conservative crash reconciliation, then real Phase 0 Telegram/FFmpeg/Render acceptance. No factory onboarding or attractive frontend before those gates. Afterward: authenticated multi-bot factory/quotas → clone lifecycle → one desired/applied settings roundtrip → shared group/music modules → plugins/web/Mini App/lounge/billing at their gates. All A–Q scope and independent clone workspaces remain required, not silently dropped.
 
 ## Detailed feature logic
 
@@ -17,7 +25,7 @@ Target: TypeScript/Telegraf control plane + Python/PyTgCalls voice service. Eval
 ## Release gates
 
 - **G0 Feasibility:** permitted local-file voice playback, IPC correlation, assistant lease, process cleanup, secret redaction and actual Render test. All live gates remain unrun.
-- **G1 Private alpha:** controller, secure bot registration, explicit lifecycle, tenant repositories, encrypted secrets, quotas, moderation basics, core audio/queues/cards, safe upcoming-track recovery. Shared main/worker modules; one bot/owner and one active call initially.
+- **G1 Private alpha:** controller, secure bot registration, explicit lifecycle, tenant repositories, encrypted secrets, quotas, moderation basics, core audio/queues/cards, safe upcoming-track recovery. Shared main/worker modules; multiple bots/owner within persisted plan limits, measured rollout cap and one active call initially.
 - **G2 Music beta:** search/provider adapters, personal/group playlists, DJ requests/votes, seek/quality/effects, localization, aggregates and operational recovery.
 - **G3 Web platform:** authenticated Next.js dashboard/Mini App, team roles, browser library synchronization, optional 2D lounge. Separate API/auth/realtime acceptance gates.
 - **G4 Expansion:** subscriptions, migrations/transfers, advanced plugin lifecycle, channel/video, advanced audio, optional 3D lounge and integrations. Individual features can be rejected after feasibility review.
@@ -83,11 +91,13 @@ A release item needs purpose, real handler/API, validated config/data schema, sc
 
 ## Remaining decisions and input
 
-The latest blueprint selects Python-first; this roadmap adopts that planning direction without installing anything. Exact Wzgram/PyTgCalls pins and Render compatibility await G0. Initial access/quota defaults remain proposed. A separate Playeon lounge URL is needed before source comparison; no extra source is assumed. Please provide the remainder of the truncated integrity section if it contains additional requirements. Implementation starts with G0, not the entire catalogue.
+Python-first is implemented offline with the pinned Kurigram stack; actual Render compatibility awaits G0. Initial capacity must be measured. Playeon research is recorded in SOURCE_COMPARISON.md; no additional URL or stack approval is needed. Please provide the remainder of the truncated integrity section if it contains additional requirements. Implementation continues within G0, not the entire catalogue.
 
-## Implementation checklist — actual progress (2026-11-15)
+## Historical implementation checkpoints (2026-11-15)
 
-Initial repository audit found README + seven planning documents, no application code, dependency manifests or test suite. No existing working runtime was replaced. The following checklist is implementation status, not a replacement roadmap.
+The checkpoints below retain evidence from successive increments; old test counts and then-pending work are historical, not the current task list. The current priority/status is at the top of this document and in the final checkpoint.
+
+Initial repository audit found README + seven planning documents, no application code, dependency manifests or test suite. No existing working runtime was replaced. The following entries record status at each historical checkpoint, not a replacement roadmap.
 
 - [x] Buildable strict TypeScript ESM project, npm lockfile and offline Node/Python test commands. Validated here on Node 22.22.3 / Python 3.11.2; Node 24 remains the deployment target, not tested here.
 - [x] Validated platform config and bounded initial queue/call limits; error messages exclude submitted config values.
@@ -214,5 +224,16 @@ A correlated native terminal event alone no longer authorizes a successful runne
 - [x] Accepted end/disconnect now appends a minimal source-bound receipt atomically with the queue transition; recovery/stop preserve evidence. Legacy queues initialize on first new receipt only.
 - [x] Capacity 100 fails closed without eviction; a full journal prevents binding new playback. Duplicate interruption cannot create another receipt.
 - [x] Five initial regressions observed RED, then eight new unit tests total including simulated committed-write/lost-ack recovery and scoped CAS assertions. New real Mongo concurrent duplicate/reconstruction coverage is present but skipped without configuration.
-- [ ] Next: tenant-scoped archive-before-ack relay with revision fencing and idempotent identities. There is intentionally no receipt purge or drain yet; playback is capped at 100 receipts per queue.
+- [x] Tenant-scoped archive-before-ack relay with revision fencing and idempotent identities, now exposed only through trusted bounded operator maintenance. Pending capacity remains 100 until acknowledged; no automated scheduler is deployed.
 - [ ] Pre-persistence native-event crash loss, durable runner audits, host cleanup, real Mongo/Telegram/Render acceptance and onboarding remain blocked. Terminal receipts are not cleanup evidence.
+
+
+### Current delivery evidence — documentation reconciliation and terminal relay
+
+Reviewed all eight repository Markdown files against current source/tests, not only the roadmap tail. Removed stale approval/no-code/Node-native defaults, permanent one-bot-per-owner assumptions and requests for an already-inspected Playeon URL. Updated worker/supervisor/audit implementation maps and marked old evidence checkpoints historical. Product scope A–Q, shared main/worker moderation, multiple-bot quotas, independent clone workspaces/settings desired/applied revisions, disabled-plugin execution checks, Videl0 catalogue fallbacks and later web/lounge/billing gates are retained. No new audit document or empty module tree was created.
+
+Implemented and wired `TerminalOutbox` into trusted `phase0:maintain`: tenant-scoped immutable archive identity, majority-acknowledged archive before revision-fenced removal, strict payload validation, bounded batches and replay without playback. A concurrent queue change rejects; prefer drained maintenance. This is not a native cleanup/release or public endpoint. Missing module RED was observed before implementation; two further unacknowledged-write regressions were observed RED before hardening. Twelve relay tests now pass.
+
+Verification: `npm run check` build/typecheck + **112 Node PASS**, regular Python **21 PASS / 3 optional-native SKIP**; isolated locked Kurigram **24 PASS**; real Mongo **8 SKIP**, including new tenant-scoped relay/revision integration case. Production dependency audit reports 0 known vulnerabilities; lint script absent. No live Telegram/Render evidence or Phase 1 advancement.
+
+Next bounded safety task: audit supervisor late-heartbeat/finish settlement and process-group cleanup/escalation against deferred-operation tests; keep unknown native holders quarantined. Run terminal relay/CAS tests on a real configured Mongo before claiming persistence acceptance. Serialized runtime relay scheduling, complete runner audit delivery, pre-persistence event loss, host-crash cleanup and actual Phase 0 acceptance remain open. No factory onboarding before these gates.

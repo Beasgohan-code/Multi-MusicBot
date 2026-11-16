@@ -1,8 +1,8 @@
 # Videl0 → Multi-MusicBot reconciliation
 
-Status: design proposal, not an implementation or deployment report.
+Status: reference behavior mapping; selected foundational behaviors and emoji catalogue data are now independently implemented, as recorded in ARCHITECTURE.md. Not a live deployment report.
 
-**Ordering update:** the latest [MASTER_ROADMAP.md](MASTER_ROADMAP.md) and [ARCHITECTURE.md](ARCHITECTURE.md) select Python/PyTgCalls first with isolated Wzgram compatibility evaluation. Intermediate Node-first preferences are superseded. Feature mapping and evidence limitations below remain applicable.
+**Ordering update:** the latest [MASTER_ROADMAP.md](MASTER_ROADMAP.md) and [ARCHITECTURE.md](ARCHITECTURE.md) select Python/PyTgCalls first; isolated compatibility tests selected Kurigram and rejected Wzgram 3.1.7. Intermediate Node-first preferences are superseded. Feature mapping and evidence limitations below remain applicable.
 
 ## Evidence and limits
 
@@ -23,7 +23,7 @@ Confirmed from inspected excerpts:
 
 Repository metadata did not report a top-level license. User ownership may permit reuse, but do not assume all dependencies/vendor assets are covered. Establish permission and review file-level/vendor licenses before copying code. This plan transfers behavior specifications first.
 
-## Architecture decision (proposed)
+## Adopted architecture direction
 
 Retain **TypeScript for controller, worker supervision, moderation, authorization, and durable music command orchestration**. Use a **Python/Kurigram/PyTgCalls voice service** as the preferred feasibility candidate rather than making a new Node native voice bridge the default.
 
@@ -31,7 +31,7 @@ Only TypeScript consumes worker bot updates. Python uses operator-provisioned as
 
 Initial Render deployment: one paid Docker worker with an explicit supervisor for Node and Python, private IPC (Unix socket or child-process framed messages), bounded restarts and separate health states. No public voice API. Prove Python native dependencies, IPC and actual calls on Render first. If split into services later, use authenticated private transport and verify hosting/network support; never expose unauthenticated playback endpoints.
 
-Queue authority is TypeScript; Python owns observed stream state only. This intentionally adapts Videl0 queue behavior rather than duplicating queues across languages. A Python-owned queue is an alternative only if chosen explicitly before implementation. Passing commands through two independent queue managers is prohibited.
+Queue authority is TypeScript; Python owns observed stream state only. This intentionally adapts Videl0 queue behavior rather than duplicating queues across languages. A Python-owned authoritative queue is not selected; any future boundary change requires an explicit tested migration, not a second queue manager. Passing commands through two independent queue managers is prohibited.
 
 ## Common API and persistence contract
 
@@ -117,10 +117,6 @@ Do not copy all 215 reported registered names into the new roadmap or treat that
 6. **Optional web:** authenticated dashboard and explicit cloud library migration; group voice remote control uses the same authorization/command pipeline, never browser audio state.
 7. **Hardening:** Render resource measurements, failure tests, backup/restore, deletion/retention and operator runbook.
 
-## Approval needed
+## Current adoption boundaries
 
-- Approve hybrid TypeScript control/moderation + Python voice instead of Node-only?
-- Keep group management in both the main bot and worker bots using shared modules?
-- Keep web dashboard, video/channel play, downloads and billing out of the first release?
-
-Defaults remain invite-only, one worker per owner, and one simultaneous call across the initial assistant until measured. No application code, credentials, cloud resources or Videl0 modifications were created by this reconciliation.
+Hybrid TypeScript control/moderation and Python voice is adopted. Main and worker group management share modules; multi-bot ownership is plan-limited, not permanently restricted to one worker. Web/Mini App/lounge, billing, downloads and video/channel remain explicit later gates. Initial call capacity remains one until measured; onboarding is disabled pending safety acceptance. No Videl0 application implementation/assets were copied; requested catalogue IDs/fallback data and independent presentation live in packages/bot-ui. No cloud resources or credentials are provisioned by this document.

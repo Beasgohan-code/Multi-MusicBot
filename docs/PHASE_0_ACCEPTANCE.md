@@ -2,7 +2,7 @@
 
 Status: Phase 0 implementation exists and passes the offline suites recorded below; real Telegram/Render acceptance is NOT RUN. Check boxes require the corresponding recorded evidence, not code existence.
 
-Latest candidate direction: Python/PyTgCalls voice; test Wzgram compatibility in isolation with Kurigram as baseline. Earlier Node-first candidate ordering below is historical; apply the same behavior/security gates to the selected Python adapter.
+Selected offline baseline: Python/Kurigram 2.2.26, PyTgCalls 2.3.3, ntgcalls 2.2.5; isolated Wzgram 3.1.7 compatibility failed. Earlier Node-first candidate ordering below is historical; apply the same behavior/security gates to the selected Python adapter.
 
 ## Goal and exclusions
 
@@ -71,7 +71,7 @@ No exact time or price is guaranteed. Operator must approve purchases. Source-se
 
 ## Implemented subset / evidence (2026-11-15)
 
-The existing master roadmap implementation checklist records actual status. Framing/request validation, config validation, encrypted credential storage primitives and private session-file output are implemented and offline-tested. Full orchestrator/adapter, event validation, timeouts, shutdown and live gates remain unchecked above.
+The existing master roadmap implementation checklist records actual status. Framing/request validation, config validation, encrypted credential storage primitives and private session-file output are implemented and offline-tested. Orchestrator/adapter, event validation, deadlines, cleanup and journals now have offline coverage; the unchecked release gates above still require their real integration evidence. Historical checkpoints below show progress, not the current limitation list.
 
 Offline compatibility commands (create each venv separately using its corresponding requirements file):
 
@@ -87,21 +87,21 @@ TEST_MONGODB_URI='mongodb://...' npm run test:integration
 .venv-kurigram/bin/python scripts/generate_session.py
 ```
 
-Observed: Wzgram probe exits 1 with ImportError (GroupcallForbidden); Kurigram probe exits 0, constructor only. Session-generation output is ignored .env.assistant, never printed. No script loads this file into a voice runtime yet. Keep credentials local; do not paste them into chat. Real Telegram credentials/group, MongoDB test target, FFmpeg and an approved Render worker are still required before live acceptance.
+Observed: Wzgram probe exits 1 with ImportError (GroupcallForbidden); Kurigram probe exits 0, constructor only. Session-generation output is ignored .env.assistant, never printed. Scripts do not auto-load dotenv; the operator must provision its values into the execution environment. Keep credentials local; do not paste them into chat. Real Telegram credentials/group, MongoDB test target, FFmpeg and an approved Render worker are still required before live acceptance.
 
 ### Private child implementation usage / limits
 
 The real child entrypoint is `apps/voice-engine/server.py`, using the isolated Kurigram baseline interpreter and environment settings listed in `.env.example`. The file is an example only; the child does not auto-load dotenv files. Operator must provision API_ID/API_HASH/ASSISTANT_SESSION and a fixed bot/chat/session/generation, read-only local fixture root and handle mapping. Automatic call creation is disabled. The TypeScript `VoiceProcess` class starts it over framed stdin/stdout, strips unrelated parent environment secrets, correlates completion events and terminates the process group on timeout/close. Native stdout banners are redirected to stderr; the parent discards raw stderr rather than leaking account details.
 
-This is a bounded Phase 0 execution path, not a deployed player: no automatic next-track handling/native terminal-event subscription, persistent assistant leases, renewal or queue orchestration yet. Wrong/stale/malformed requests fail closed. A native operation error yields a sanitized failed event and an uncertain session requiring stop/leave; no automatic replay occurs. The hard session lifetime is not proof of durable lease safety. `playback_started` currently means PyTgCalls play returned successfully, not human-confirmed audibility.
+This is a bounded Phase 0 execution path, not a deployed player. The runner now integrates next-track handling, native terminal events, persistent leases, renewal and queue orchestration; live acceptance is still pending. Wrong/stale/malformed requests fail closed. A native operation error yields a sanitized failed event and an uncertain session requiring stop/leave; no automatic replay occurs. The hard session lifetime is not proof of durable lease safety. `playback_started` currently means PyTgCalls play returned successfully, not human-confirmed audibility.
 
-Tests for the installed-library factory run with `.venv-kurigram/bin/python -m unittest discover -s tests/voice -v`; regular `npm run check` skips that one test if the native environment is absent. Actual Telegram/Render checks above stay unchecked.
+Tests for the installed-library factory run with `.venv-kurigram/bin/python -m unittest discover -s tests/voice -v`; regular `npm run check` skips three optional-native tests if that environment is absent. Actual Telegram/Render checks above stay unchecked.
 
 ### Latest event/queue/lease evidence
 
-Native stream-end/disconnect reporting is now implemented in the adapter/runtime/child/TypeScript transport, with duplicate and stop-late-event coverage. The previous command-results-only limitation is superseded. The fixed session lifetime and lack of integrated durable lease renewal in the running child are NOT superseded.
+Native stream-end/disconnect reporting is now implemented in the adapter/runtime/child/TypeScript transport, with duplicate and stop-late-event coverage. The previous command-results-only limitation is superseded. The runner increment below supersedes the missing renewal integration; the child safety cap remains.
 
-Queue state and durable MongoDB lease repositories now exist, including opt-in real database tests in `tests/integration/playback-state.test.ts`; those tests remain skipped until TEST_MONGODB_URI is configured. No automatic queue-intent dispatcher, active lease-renewal supervisor or authenticated controller integration has been completed. Native source identity safety currently requires one media track per child and child cleanup between tracks; this trades seamless switching for unambiguous completion identity.
+Queue state and durable MongoDB lease repositories now exist, including opt-in real database tests in `tests/integration/playback-state.test.ts`; those tests remain skipped until TEST_MONGODB_URI is configured. An operator queue runner and authenticated supervisor are implemented; the full controller/factory integration is not. Native source identity safety currently requires one media track per child and child cleanup between tracks; this trades seamless switching for unambiguous completion identity.
 
 Remaining environment blockers: no authenticated assistant/test-group configuration, no FFmpeg binary in this sandbox, no MongoDB test service, and no approved Render test deployment. Sandbox outbound networking is restricted and does not provide direct Telegram connectivity, so real Telegram verification must run in an approved external/local environment. No credentials should be pasted into chat. All live acceptance checkboxes stay unchecked; Phase 1 is not recommended yet.
 
@@ -109,11 +109,11 @@ Remaining environment blockers: no authenticated assistant/test-group configurat
 
 `PlaybackRunner` now connects persisted queue intents, guarded assistant leases, one Python child per track, terminal-event handling and cleanup-before-release. It polls persisted skip/stop/pause/resume changes. Renewal uses Mongo server-time guards and a conservative renewable monotonic deadline in Python; replayed renewal requests do not extend that deadline. The 3600-second child safety cap remains. Metadata recovery never clears an in-process quarantine or resets an assistant lease.
 
-Operator entrypoint: `npm run phase0 -- --enqueue fixture-a --enqueue fixture-b`. It requires the execution settings in `apps/bot-runtime/execution-config.ts`, an existing enabled assistant record and an accessible Mongo database; it does not provision accounts, load dotenv files or create a Telegram call. `--recover` saves upcoming metadata without replaying a previous start. This entrypoint is **not** wired to authenticated worker registration and is not approved for concurrent deployment. Keep all credentials in local environment/secrets, not command arguments or chat.
+Operator entrypoint: `npm run phase0 -- --enqueue fixture-a --enqueue fixture-b`. It requires the execution settings in `apps/bot-runtime/execution-config.ts`, an existing enabled assistant record and an accessible Mongo database; it does not provision accounts, load dotenv files or create a Telegram call. `--recover` saves upcoming metadata without replaying a previous start. This entrypoint now uses grant-authenticated worker claim/heartbeat/finish but is not approved for concurrent fleet deployment. Keep all credentials in local environment/secrets, not command arguments or chat.
 
 Verified locally: `npm run check` passes TypeScript build, **40 Node tests**, and **21 Python tests with 3 native-library skips** (24 total). The isolated Kurigram suite passes **24/24**, including constructor/update-type checks; these are offline checks, not Telegram playback. Runner doubles cover duplicate end, reap/release order, uncertain cleanup, renewal success/failure, persistence failure, cleanup DB outage, persisted skip/pause/resume, disconnect and quarantine surviving metadata recovery. Real child transport tests cover leave/idle acknowledgement and normal process exit. `npm run test:integration` still reports **3 skips**, with no configured Mongo target.
 
-Still incomplete: abandoned-lease reconciliation, cancellation/late-settlement handling for bounded operations, durable terminal journal/atomic transition audit, authenticated controller wiring, worker lifecycle/restart policy, real Mongo failure matrix and actual Telegram/Render verification. `WorkerRegistry` is an isolated internal repository with grant-derived ownership and guarded registration/heartbeat primitives, not a working supervisor; its grants/slots require operator provisioning. Structured audit inserts are whitelisted but not atomic with queue transitions. No live acceptance checkbox is satisfied by these tests. Phase 0 remains incomplete.
+Still incomplete: abandoned-lease reconciliation, cancellation/late-settlement handling for bounded operations, durable terminal journal/atomic transition audit, authenticated controller wiring, worker lifecycle/restart policy, real Mongo failure matrix and actual Telegram/Render verification. `WorkerRegistry` is an internal repository with grant-derived ownership and guarded claim/heartbeat primitives, now used by the operator supervisor; grants/slots still require trusted operator provisioning. Structured audit inserts are whitelisted but not atomic with queue transitions. No live acceptance checkbox is satisfied by these tests. Phase 0 remains incomplete.
 
 ### Shared Telegram presentation evidence (2026-11-15)
 
@@ -186,4 +186,11 @@ The queue's atomic CAS now includes a bounded terminal receipt for accepted end/
 
 `npm run check`: build/typecheck PASS, **100 Node PASS**, regular Python **21 PASS / 3 optional-native SKIP**. Recreated ignored isolated Kurigram environment from the committed lockfile; **24 Python PASS**. `npm run test:integration`: **7 SKIP** without a configured Mongo target, including new real Mongo concurrent terminal receipt/reconstruction test. `npm ci`: audit reports 0 vulnerabilities. No lint script exists; `git diff --check` passes. No live Telegram or Render test performed.
 
-No archive/acknowledgement yet: at 100 receipts, terminal mutation and new playback binding fail closed; stop/recovery retain evidence and cannot free journal capacity. Next gate is safe tenant-scoped archive-before-ack with queue revision fencing. Committed receipt persistence is not a full durable terminal-event transport, independent audit relay, or native cleanup proof. Onboarding remains disabled.
+The operator archive/ack relay below now frees pending capacity only after archive success. At 100 pending receipts, terminal mutation and new playback binding still fail closed; stop/recovery never discard evidence. Committed receipt persistence is not a full durable terminal-event transport, independent audit relay, or native cleanup proof. Onboarding remains disabled.
+
+
+### Terminal relay and full-document reconciliation evidence
+
+All eight repository Markdown files reviewed and reconciled with source; historical checkpoint counts do not represent current acceptance. Terminal archival is now exposed through the bounded trusted operator maintenance CLI. Archive and acknowledgement request majority write concern and reject unacknowledged responses. Receipt acknowledgement requires the observed queue revision and increments it; stale queue replacement is rejected, and concurrent mutation/relay conflicts retain evidence for a fresh batch. Archive identity is bot+chat+receipt revision with immutable payload collision protection. The relay neither replays playback nor releases ownership. Prefer running while playback is drained; automatic serialized runtime delivery remains unfinished.
+
+TDD: initial missing-module RED plus two observed unacknowledged-write regressions RED; **12 relay tests PASS**, including outage/replay, CAS race, stale replacement, strict scope/payload, duplicate-revision rejection, identity collision and full-journal capacity recovery. `npm run check`: build/typecheck PASS, **112 Node PASS**, **21 Python PASS / 3 optional-native SKIP**. Isolated locked Kurigram: **24 PASS**. Real Mongo: **8 SKIP**, including new relay scope/CAS test, because no target is configured. `npm audit --omit=dev`: 0 known advisories. `git diff --check` PASS; no lint script. Unit collection doubles are not Mongo rollback/process-crash acceptance. No live Telegram or Render tests performed; all live release gates remain unchecked and onboarding disabled.

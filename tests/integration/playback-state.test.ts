@@ -62,3 +62,26 @@ test('real MongoDB assistant acquire/renew/expiry cannot be stolen without clean
   await assert.rejects(repo.releaseAfterCleanup('a','w1',1),/LEASE_LOST/);
  } finally {await db.dropDatabase();await client.close();}
 });
+
+test('real MongoDB terminal relay archives tenant-scoped receipts and fences stale replacements', {skip:!process.env.TEST_MONGODB_URI},async()=>{
+ const {TerminalOutbox}=await import('../../packages/database/terminal-outbox.js');
+ const client=await new MongoClient(process.env.TEST_MONGODB_URI!,{serverSelectionTimeoutMS:3000}).connect();
+ const db=client.db('music_test_'+randomUUID().replaceAll('-',''));
+ try{
+  const collection=db.collection<QueueState>('music_queues');
+  for(const botId of ['123','456']){
+   const repo=new MongoQueue(collection,botId,'-1001');await repo.ensureIndexes();await repo.initialize();
+   let s=await repo.apply(0,{type:'enqueue',track:{id:'a',title:'a',mediaHandle:'a'}});
+   const source={sessionId:'s',generation:1,requestId:'r'};
+   s=await repo.apply(s.revision,{type:'begin',source});s=await repo.apply(s.revision,{type:'confirmed',source});await repo.apply(s.revision,{type:'ended',source});
+  }
+  const repo=new MongoQueue(collection,'123','-1001');const observed=await repo.read();
+  const archive=db.collection('terminal_events');const relay=new TerminalOutbox(archive);await relay.ensureIndexes();
+  assert.equal(await relay.flush(collection,{botId:'123'}),1);
+  assert.equal(await relay.flush(collection,{botId:'123'}),0);
+  assert.equal(await archive.countDocuments({botId:'123'}),1);assert.equal(await archive.countDocuments({botId:'456'}),0);
+  await assert.rejects(repo.apply(observed.revision,{type:'stop'}),/STALE_REVISION/);
+  assert.equal((await repo.read()).terminalReceipts?.length,0);
+  assert.equal((await new MongoQueue(collection,'456','-1001').read()).terminalReceipts?.length,1);
+ }finally{await db.dropDatabase();await client.close();}
+});

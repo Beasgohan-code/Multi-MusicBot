@@ -1,5 +1,7 @@
 import {MongoClient} from 'mongodb';
 import {AbandonedOwnership} from '../packages/database/reconciliation.js';
+import {TerminalOutbox} from '../packages/database/terminal-outbox.js';
+import type {QueueState} from '../packages/queue/state.js';
 import {OwnershipOutbox} from '../packages/database/ownership-outbox.js';
 /** Trusted operator CLI, not a tenant endpoint. Mongo credentials authorize this tool.
  * One bounded batch per invocation. No secrets or raw database errors are printed.
@@ -11,10 +13,12 @@ async function main(){
  try{
   await client.connect();const db=client.db(name),workers=db.collection('workers'),assistants=db.collection('assistants');
   const relay=new OwnershipOutbox(db.collection('ownership_events'));await relay.ensureIndexes();
+  const terminals=new TerminalOutbox(db.collection('terminal_events'));await terminals.ensureIndexes();
+  const terminalEventsDelivered=await terminals.flush(db.collection<QueueState>('music_queues'),{botId});
   const before=await relay.flush(workers,{botId})+await relay.flush(assistants,{botId});
   const result=await new AbandonedOwnership(workers,assistants).scan(botId);
   const after=await relay.flush(workers,{botId})+await relay.flush(assistants,{botId});
-  console.log(JSON.stringify({inspected:result.inspected,quarantined:result.quarantined,eventsDelivered:before+after,cleanupConfirmed:false}));
+  console.log(JSON.stringify({inspected:result.inspected,quarantined:result.quarantined,eventsDelivered:before+after,terminalEventsDelivered,cleanupConfirmed:false}));
  }finally{await client.close();}
 }
 main().catch(()=>{console.error('OWNERSHIP_MAINTENANCE_FAILED: no cleanup or takeover was confirmed.');process.exitCode=1;});
