@@ -13,7 +13,10 @@ test('native completion and concurrent skip cannot advance the queue twice', asy
   await Promise.allSettled([applyNativeEvent(repo,event),repo.apply(revision,{type:'skip'})]);
   assert.equal(s.current?.track.id,'b');
   assert.deepEqual(s.upcoming.map(t=>t.id),['c']);
+  const receipts=structuredClone(s.terminalReceipts);
   assert.equal(await applyNativeEvent(repo,event),false);
+  assert.deepEqual(s.terminalReceipts,receipts);
+  assert.ok((s.terminalReceipts?.length??0)<=1);
   assert.equal(s.current?.track.id,'b');
 });
 

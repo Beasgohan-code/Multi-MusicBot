@@ -208,3 +208,11 @@ Runner retains exact outstanding queue mutations and cleanup release promises be
 ### Terminal acknowledgement truthfulness
 
 A correlated native terminal event alone no longer authorizes a successful runner result or completion/advancement audits. The source-bound queue CAS must report that it applied. If skip, stop, recovery or interruption supersedes the source before persistence, the runner fails closed with `TERMINAL_NOT_APPLIED`, reaps the child, performs exact guarded release only after cleanup, and remains blocked. This is conservative rejection, not reconciliation or a durable terminal journal. Normal successful CAS retries remain bounded and duplicate events do not advance twice. Durable receipt/outbox journaling and real process-crash acceptance remain unfinished; onboarding stays disabled.
+
+### Atomic terminal receipt checkpoint
+
+- [x] Accepted end/disconnect now appends a minimal source-bound receipt atomically with the queue transition; recovery/stop preserve evidence. Legacy queues initialize on first new receipt only.
+- [x] Capacity 100 fails closed without eviction; a full journal prevents binding new playback. Duplicate interruption cannot create another receipt.
+- [x] Five initial regressions observed RED, then eight new unit tests total including simulated committed-write/lost-ack recovery and scoped CAS assertions. New real Mongo concurrent duplicate/reconstruction coverage is present but skipped without configuration.
+- [ ] Next: tenant-scoped archive-before-ack relay with revision fencing and idempotent identities. There is intentionally no receipt purge or drain yet; playback is capped at 100 receipts per queue.
+- [ ] Pre-persistence native-event crash loss, durable runner audits, host cleanup, real Mongo/Telegram/Render acceptance and onboarding remain blocked. Terminal receipts are not cleanup evidence.
