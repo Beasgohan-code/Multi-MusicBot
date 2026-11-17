@@ -311,10 +311,18 @@ Vendor import review: staged credential-pattern/local-link checks pass; no depen
 - [ ] Next: run Docker builds/native SQLite startup on an approved Docker host, verify Blueprint through Render, then a private test with real Mongo/Redis/Telegram initData/media/network/termination checks. Existing URL-token transport/logging/auth/recovery issues block broader production exposure. This deploys browser playback only; full mode application/acknowledgement and Python VC integration remain unfinished. Do not present templates as completed platform acceptance.
 
 
-### Current delivery evidence — full application in one Dockerfile
+### Full application in one Dockerfile checkpoint
 
 - [x] User rejects a partial/split deployment and requests the full clone startup. Added root `Dockerfile.bot` for the complete vendored bot + Next WebApp + gateway, with single-service Render Blueprint. Prior split configuration remains available as an alternative, and the native-VC prototype is untouched. No upstream source/credit edits.
 - [x] Observed missing root Dockerfile RED before implementation. Environment template/README now enumerate exact inputs, public build arguments, single URL, persistent disk, command defaults and BotFather named `room` setup. Defaults cover session/DB name/caps; no assistant session or worker grant required for upstream browser playback.
 - [x] Gateway distinguishes HTTP `/room` from WebSocket `/room`, proxies authenticated media/preview/avatar endpoints, disables proxy buffering/access logs. Supervisor aggregates health from both services over bounded HTTP requests, rejects conflicting internal ports, drops app privileges, drains immediate services on signal/failure with escalation. No seamless recovery or descendant cleanup assertion.
 - [x] Build/typecheck + 170 Node PASS, regular Python 21 PASS / 3 optional-native SKIP; Mongo 9 SKIP. Five new full-deployment tests include actual loopback health responses plus config/image/gateway contracts. Existing deployment tests updated for intentionally combined service; root image/provenance checks preserved. No root lint script; inherited web lint remains 4 errors / 11 warnings.
 - [ ] Docker image, native SQLite/session creation, Nginx syntax/WebSocket/range transport, real database/Telegram/Render acceptance are NOT RUN without engine/credentials. Single-container packaging is not proof of production readiness, owner mode integration, bot-factory/clone safety or native VC. Existing full scope and original license remain intact.
+
+
+### Current delivery evidence — reported VC Docker build directory failure
+
+- [x] User supplied a real build failure: root Python-VC image reached `mkdir /media` on a base with that directory already present. It was not building `Dockerfile.bot`. Reproduced the existing-directory failure RED by executing the actual extracted shell mkdir step in a disposable directory.
+- [x] Changed only that step to `mkdir -p /media`; retained non-root execution/ownership and distinct all-in-one deployment path. Regression proves absent directory creation, existing directory/content preservation, and regular-file collision rejection (no blanket error suppression).
+- [x] Four container tests PASS; root build/typecheck + 171 Node PASS; regular Python 21 PASS / 3 optional-native SKIP. Mongo 9 SKIP without target. Docker engine absent, so full image rebuild NOT RUN. Isolated Python/native suites not rerun for a filesystem-only Docker fix; no root lint script.
+- [ ] Operator must select `Dockerfile.bot` in Render for full cloned bot/WebApp, correct branch/latest commit and repository-root context; README provides exact troubleshooting. The root VC image remains an operator prototype even after this build fix. Real all-in-one image/Nginx/database/Telegram/Render acceptance and existing safety/security/lint gates remain unverified.

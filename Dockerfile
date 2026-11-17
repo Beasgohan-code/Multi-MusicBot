@@ -32,7 +32,7 @@ COPY apps/voice-engine/*.py ./apps/voice-engine/
 COPY scripts/check_voice_compatibility.py ./scripts/check_voice_compatibility.py
 RUN groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --create-home app \
-    && mkdir /media \
+    && mkdir -p /media \
     && chown app:app /media
 USER app
 # Runner exits when its bounded queue is drained; this is not a polling bot.
