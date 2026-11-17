@@ -2,12 +2,12 @@
 # Paid service/disk; personal non-commercial testing under preserved upstream license.
 services:
   - type: web
-    name: multimusicbot-full
+    name: multi-musicbot
     runtime: docker
     plan: starter
     numInstances: 1
     autoDeploy: false
-    dockerfilePath: ./Dockerfile.bot
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
     disk:
@@ -18,7 +18,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PUBLIC_APP_URL
-        sync: false
+        value: https://multi-musicbot.onrender.com
       - key: BOT_USERNAME
         sync: false
       - key: API_ID

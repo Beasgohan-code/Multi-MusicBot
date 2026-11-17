@@ -8,12 +8,12 @@ MultiMusicBot is a Telegram-first bot-hosting platform in development. The goal 
 
 ## Deploy the complete Playeon bot + WebApp together
 
-**Use root `Dockerfile.bot`.** It packages the actual attributed Playeon Telegram bot, full Next.js 2D/3D WebApp, FFmpeg/yt-dlp and an Nginx HTTP/WebSocket gateway in **one container, one Render service, one public URL**. It is not a frontend-only demo. Both application sources are copied; the bot and web retain the same patched upstream snapshot. The older split-service option remains in `deploy/render/split-services.yaml`.
+**Use the default root `Dockerfile`.** `Dockerfile.bot` is kept as an identical compatibility copy. It packages the actual attributed Playeon Telegram bot, full Next.js 2D/3D WebApp, FFmpeg/yt-dlp and an Nginx HTTP/WebSocket gateway in **one container, one Render service, one public URL**. It is not a frontend-only demo. Both application sources are copied; the bot and web retain the same patched upstream snapshot. The older split-service option remains in `deploy/render/split-services.yaml`.
 
 ### Render settings
 
 - **New → Web Service → this repo**, branch `arena/2a88ec45-multi-musicbot`.
-- Runtime **Docker**, Dockerfile path **`Dockerfile.bot`**, build context **repository root**. Leave Docker Command empty so the supplied supervisor starts the complete stack.
+- Runtime **Docker**, Dockerfile path **`Dockerfile`**, build context **repository root**. Leave Docker Command empty so the supplied supervisor starts the complete stack.
 - Choose an operator-approved paid instance and mount a **1 GB persistent disk at `/var/data`** for the bot session. Keep **one instance** and no other bot process using this token. Review costs before creating anything.
 - Set health check **`/health`**. Render's `PORT` is used automatically. The combined health endpoint requires both bot and web to respond.
 - Alternatively use **New → Blueprint**, root `render.yaml`, which now creates this same **single-service** deployment and generates the signing secret. MongoDB and Redis must be provisioned separately; neither is embedded in the container.
@@ -24,7 +24,7 @@ Copy field names from [deploy/render/bot.env.example](deploy/render/bot.env.exam
 
 | Variable | Value |
 |---|---|
-| `PUBLIC_APP_URL` | This service's public **HTTPS origin**, e.g. `https://your-music.onrender.com`; no `/room`, query or credentials |
+| `PUBLIC_APP_URL` | **`https://multi-musicbot.onrender.com`** (your supplied URL, now the default); no `/room`, query or credentials |
 | `BOT_USERNAME` | Your Telegram bot username **without `@`** |
 | `API_ID` | Your Telegram application's numeric API ID |
 | `API_HASH` | Your Telegram application's API hash; secret |
@@ -40,7 +40,7 @@ Generate the signing secret **locally** and paste its output into Render's secre
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Defaults already in `Dockerfile.bot`: `NODE_ENV=production`, `MONGO_DB=playeon_test`, `SESSION_NAME=/var/data/playeon-session`, AI disabled, media concurrency 2 and queue cap 20. `TELEGRAM_BOT_ID`, both service origins and browser-public variables are derived; you do **not** need to enter assistant sessions, separate WebApp URLs or Python VC grants for this Playeon deployment. Keep `DEV_MODE` unset. `PUBLIC_APP_URL` and `BOT_USERNAME` must be available **during Docker build** too (the Dockerfile declares them as public build arguments); changing either requires a **rebuild**, not just restart. Render supplies Docker build arguments from matching service environment values. Verify your assigned service URL after creation; correct any mismatch and rebuild.
+Defaults already in `Dockerfile` (and `Dockerfile.bot`): `NODE_ENV=production`, `MONGO_DB=playeon_test`, `SESSION_NAME=/var/data/playeon-session`, AI disabled, media concurrency 2 and queue cap 20. `TELEGRAM_BOT_ID`, both service origins and browser-public variables are derived; you do **not** need to enter assistant sessions, separate WebApp URLs or Python VC grants for this Playeon deployment. Keep `DEV_MODE` unset. `PUBLIC_APP_URL` and `BOT_USERNAME` must be available **during Docker build** too (the Dockerfile declares them as public build arguments); changing either requires a **rebuild**, not just restart. Render supplies Docker build arguments from matching service environment values. Verify your assigned service URL after creation; correct any mismatch and rebuild.
 
 In BotFather configure a Mini App with **short name `room`**, using **`PUBLIC_APP_URL/room`** as its URL and your domain as required by Telegram. Start the bot in a private test group; use `/start` and `/room`, then test authorized media through Telegram. Ordinary browser access has no signed Telegram initData. No secrets, tokens or full authenticated room/media URLs belong in screenshots/logs/issues.
 
@@ -54,13 +54,15 @@ docker run --rm --env-file .env.full -p 10000:10000 \
   --mount type=volume,src=playeon-session,dst=/var/data multimusicbot-full
 ```
 
-**Evidence and limits:** root checks pass, with actual loopback HTTP tests for combined readiness. Docker/Nginx execution, real Mongo/Redis/Telegram playback and Render deployment are **not yet verified** here (no Docker engine). Startup checks deny missing/unsafe configuration and development bypass; original upstream room/media-token transport, web lint failures and broader auth/logging/recovery review remain open. Rooms remain in memory across this personal-test application: restart is not seamless recovery. Original author **Sushi / Playeon Project**, credits and license are preserved; commercial use needs written permission. This packages the **complete upstream browser application**, not the still-unfinished multi-tenant factory, owner mode application, or our Python native-VC integration. Root `Dockerfile` still runs that separate operator VC prototype. No production-ready or native-VC playback claim is made by this container.
+**Evidence and limits:** root checks pass, with actual loopback HTTP tests for combined readiness. Docker/Nginx execution, real Mongo/Redis/Telegram playback and Render deployment are **not yet verified** here (no Docker engine). Startup checks deny missing/unsafe configuration and development bypass; original upstream room/media-token transport, web lint failures and broader auth/logging/recovery review remain open. Rooms remain in memory across this personal-test application: restart is not seamless recovery. Original author **Sushi / Playeon Project**, credits and license are preserved; commercial use needs written permission. This packages the **complete upstream browser application**, not the still-unfinished multi-tenant factory, owner mode application, or our Python native-VC integration. The separate operator VC prototype is preserved in `Dockerfile.vc`. No production-ready or native-VC playback claim is made by this container.
 
-### Troubleshooting: `mkdir: cannot create directory /media: File exists`
+### Troubleshooting: `PHASE0_EXECUTION_FAILED` after a successful build
 
-This error comes from the **root `Dockerfile` (operator VC prototype)**, not the all-in-one image. Its directory setup is fixed to `mkdir -p /media`, preserving the existing directory/content and ownership step. A shell regression test verifies absent/existing directory success and that a regular-file collision still fails; the complete image has not been rebuilt here.
+The supplied Render log built the **old root native-VC prototype**, not the full browser app. The `/media` build fix succeeded, but that operator runner needs provisioned grants/assistant/queue bindings and is not an HTTP web service. The generic error does not identify which operator prerequisite failed; do not guess credentials or reset leases to work around it.
 
-For the complete cloned bot + WebApp, open your Render service **Settings → Build & Deploy → Dockerfile Path**, set **`Dockerfile.bot`** (build context repository root), remove any Docker Command override, and deploy the latest commit on `arena/2a88ec45-multi-musicbot`. Its build stages are `web-build`/`bot-build`, not the `node-build`/Python `runtime` shown in the failed VC log. Confirm `PUBLIC_APP_URL` and `BOT_USERNAME` are supplied before rebuilding; changing the Dockerfile path does not remove the environment/disk requirements above. If Render still selects the old path after the settings change, use its clear-build-cache/redeploy option and check the selected branch/commit. Merely retrying the old image will not start the combined application.
+**The default has now changed:** root `Dockerfile` starts the combined bot/WebApp. The former root image is preserved as `Dockerfile.vc` (including its tested `mkdir -p /media` fix). `Dockerfile.bot` remains identical to the new default, so either application path works. On the existing Render service, select latest branch commit, set Dockerfile Path `Dockerfile` (or retain `Dockerfile.bot`), build context repository root, remove Docker Command overrides, and clear build cache/redeploy if the old image persists. Look for `web-build` / `bot-build` stages and the runtime `APPLICATION_STARTING: combined bot + WebApp` marker—not `node-build` / Python `runtime` or `PHASE0_EXECUTION_FAILED`.
+
+Your app origin **`https://multi-musicbot.onrender.com`** is now supplied as a non-secret build/runtime default and in the Blueprint/template. Confirm the service actually owns that URL; it has not been fetched/verified from this workspace. Set BotFather's named Mini App **`room`** to **`https://multi-musicbot.onrender.com/room`**. Bot token/API credentials, Mongo/Redis connections and the signing secret are still required; use the environment table above. For manual Render services generate `ROOM_JWT_SECRET` yourself (Blueprint creates it). A fresh `DEPLOY_CONFIG_INVALID` message lists field names without values; a build-time `PUBLIC_BUILD_CONFIG_INVALID` explains the required public fields. Changing public URL/username requires a rebuild. Do not run the optional `Dockerfile.vc` on this WebApp service.
 
 ## Direct Playeon personal-test copy
 
@@ -78,7 +80,7 @@ npm --prefix vendor/playeon/playeon-web run build
 
 For a live **private test**, separately provision MongoDB, Redis, FFmpeg/yt-dlp and a dedicated test bot/group. Copy the two component `.env.example` files to `.env` locally and fill them through a secure editor/secret store; never share their contents here. Use the actual component templates/code rather than assuming upstream README variable names are exact. Set `WEB_PUBLIC_URL`, `ROOM_PUBLIC_URL`, `BOT_USERNAME`, a fresh `ROOM_JWT_SECRET`, and the web component's `NEXT_PUBLIC_ROOM_WS_URL` to **your own** origins (no trailing `/ws` on that HTTP(S) origin). Configure required Telegram/database values on both sides. `NEXT_PUBLIC_*` values are public and build-time: rebuild after changing them; never put secrets there. Keep `DEV_MODE` unset and use `NODE_ENV=production`; development mode has authorization bypasses. Do not use upstream public-host defaults or broad public DB access to work around configuration.
 
-Then run the bot and web in separate terminals using `npm --prefix vendor/playeon/playeon-bot start` and `npm --prefix vendor/playeon/playeon-web start`. This is a setup guide, **not evidence a live session works**: no credentials/databases/network playback were used here. Do not run upstream `deploy.sh` blindly; hosting/security/termination behavior still needs review. Media must be authorized; no private cookies or access-control bypasses. Original Playeon is a browser lounge and is **not wired into this platform's Python VC path or owner mode setting**. Its rooms do not inherit our lease/tenant safety. The root `Dockerfile` still runs the separate MultiMusicBot operator prototype; use `Dockerfile.bot` for the combined copy. Do not deploy this evaluation copy as a public multi-tenant service.
+Then run the bot and web in separate terminals using `npm --prefix vendor/playeon/playeon-bot start` and `npm --prefix vendor/playeon/playeon-web start`. This is a setup guide, **not evidence a live session works**: no credentials/databases/network playback were used here. Do not run upstream `deploy.sh` blindly; hosting/security/termination behavior still needs review. Media must be authorized; no private cookies or access-control bypasses. Original Playeon is a browser lounge and is **not wired into this platform's Python VC path or owner mode setting**. Its rooms do not inherit our lease/tenant safety. The separate MultiMusicBot operator prototype uses `Dockerfile.vc`; default `Dockerfile` and compatible `Dockerfile.bot` start the combined copy. Do not deploy this evaluation copy as a public multi-tenant service.
 
 ## What “cloning a bot” means
 
@@ -295,12 +297,12 @@ Render deployment templates for the personal browser-path test are provided abov
 
 ### Docker / private Render feasibility test
 
-A [Dockerfile](Dockerfile) now packages the **operator-only playback runner**, not a complete Telegram command bot. It includes Node 22, Python 3.11, the locked Kurigram/native baseline, FFmpeg and `tini`, and runs as UID 10001. No HTTP port or public health endpoint is supplied. The image has **not been built in this workspace** (Docker engine unavailable); Render/native compatibility is unverified.
+The optional [Dockerfile.vc](Dockerfile.vc) packages the **operator-only playback runner**, not a complete Telegram command bot. It includes Node 22, Python 3.11, the locked Kurigram/native baseline, FFmpeg and `tini`, and runs as UID 10001. No HTTP port or public health endpoint is supplied. The image has **not been built in this workspace** (Docker engine unavailable); Render/native compatibility is unverified.
 
 Build and check on a Docker-capable machine before provisioning secrets:
 
 ```sh
-docker build --pull -t multimusicbot-phase0 .
+docker build -f Dockerfile.vc --pull -t multimusicbot-phase0 .
 docker run --rm multimusicbot-phase0 node --version
 docker run --rm multimusicbot-phase0 /opt/voice/bin/python scripts/check_voice_compatibility.py --client kurigram
 docker run --rm multimusicbot-phase0 ffmpeg -version
@@ -316,7 +318,7 @@ docker run --rm --env-file .env.phase0 \
 
 Set `VOICE_MEDIA_ROOT=/media`, `VOICE_MEDIA_HANDLES={"fixture-a":"audio-a.wav"}` and all required execution bindings from `.env.example`. Fixtures must be readable by UID 10001. `.dockerignore` excludes media and secrets: provision media separately, do not expect local files to appear in the image. The runner does not download songs, create calls or register accounts.
 
-For Render, use the repository root/Dockerfile on the active branch and a **private, operator-approved Docker worker/job**, not a web service that waits for an HTTP port. Confirm currently available service options/costs in Render before purchasing. Supply secrets only through the service secret store, restricted test Mongo access, and separately provisioned read-only fixtures. Run one call with a spare assistant/test group, record audible output and cleanup, CPU/memory/startup/native versions, and stop/suspend the service after the test. See [the actual Render acceptance gate](docs/PHASE_0_ACCEPTANCE.md#actual-render-gate--cannot-be-replaced-by-local-tests).
+For this optional native-VC prototype only, use `Dockerfile.vc` with repository-root build context on the active branch and a **private, operator-approved Docker worker/job**, not a web service that waits for an HTTP port. Confirm currently available service options/costs in Render before purchasing. Supply secrets only through the service secret store, restricted test Mongo access, and separately provisioned read-only fixtures. Run one call with a spare assistant/test group, record audible output and cleanup, CPU/memory/startup/native versions, and stop/suspend the service after the test. See [the actual Render acceptance gate](docs/PHASE_0_ACCEPTANCE.md#actual-render-gate--cannot-be-replaced-by-local-tests).
 
 **Restart warning:** this runner exits when its bounded queue drains. A continuously restarted worker is not an always-on bot. Do not bake `--enqueue` into an automatically restarted start command: it is an admission request, not an idempotent deployment setting. Prefer a controlled one-off run; if the hosting mode cannot prevent repeated execution, do not attach credentials/start it yet. Never reset grants, quarantine or leases to make a restarted deployment proceed. No auto-deploy blueprint is included until restart/reconciliation gates are verified. A successful image build alone does not complete Phase 0.
 

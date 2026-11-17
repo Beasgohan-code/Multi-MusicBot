@@ -27,6 +27,7 @@ function launch(name,command,args,cwd){
 }
 process.once('SIGTERM',()=>stop(0));process.once('SIGINT',()=>stop(0));
 health.once('error',()=>{console.error('HEALTH_SERVER_FAILED');stop(1);});
+console.info('APPLICATION_STARTING: combined bot + WebApp; /health requires both services.');
 health.listen(3001,'127.0.0.1',()=>{
  if(stopping)return;
  launch('bot','node',['--import','tsx','src/index.ts'],'/app/bot');

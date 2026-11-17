@@ -320,9 +320,18 @@ Vendor import review: staged credential-pattern/local-link checks pass; no depen
 - [ ] Docker image, native SQLite/session creation, Nginx syntax/WebSocket/range transport, real database/Telegram/Render acceptance are NOT RUN without engine/credentials. Single-container packaging is not proof of production readiness, owner mode integration, bot-factory/clone safety or native VC. Existing full scope and original license remain intact.
 
 
-### Current delivery evidence — reported VC Docker build directory failure
+### Reported VC Docker build directory failure checkpoint
 
 - [x] User supplied a real build failure: root Python-VC image reached `mkdir /media` on a base with that directory already present. It was not building `Dockerfile.bot`. Reproduced the existing-directory failure RED by executing the actual extracted shell mkdir step in a disposable directory.
 - [x] Changed only that step to `mkdir -p /media`; retained non-root execution/ownership and distinct all-in-one deployment path. Regression proves absent directory creation, existing directory/content preservation, and regular-file collision rejection (no blanket error suppression).
 - [x] Four container tests PASS; root build/typecheck + 171 Node PASS; regular Python 21 PASS / 3 optional-native SKIP. Mongo 9 SKIP without target. Docker engine absent, so full image rebuild NOT RUN. Isolated Python/native suites not rerun for a filesystem-only Docker fix; no root lint script.
 - [ ] Operator must select `Dockerfile.bot` in Render for full cloned bot/WebApp, correct branch/latest commit and repository-root context; README provides exact troubleshooting. The root VC image remains an operator prototype even after this build fix. Real all-in-one image/Nginx/database/Telegram/Render acceptance and existing safety/security/lint gates remain unverified.
+
+
+### Current delivery evidence — make the full application the default
+
+- [x] User's subsequent Render log confirms the `/media` build fix succeeded but the old root native-VC operator runner exited with its generic failure. Do not infer specific DB/auth/lease failure from that sanitized message. Supplied public app origin is `https://multi-musicbot.onrender.com`; no live endpoint probe/deployment modification performed.
+- [x] RED default-image regression before implementation: root file lacked full app build stages. Root `Dockerfile` now builds/starts bot+WebApp+gateway; old root image preserved unchanged as `Dockerfile.vc`, including the mkdir fix. `Dockerfile.bot` compatibility copy must match the new default byte-for-byte. Blueprint selects root default. Existing VC and directory tests target the explicit opt-in file, not removed/weakened.
+- [x] Public origin supplied as build/runtime/Blueprint/template default; bot username still required at build, credentials never embedded. Startup marker distinguishes full app from operator runner; build error explains public fields without values. README corrected current native-vs-default paths and gives exact existing-service recovery and BotFather URL.
+- [x] Build/typecheck + 172 Node PASS; regular Python 21 PASS / 3 optional-native SKIP; real Mongo 9 SKIP without target. No root lint script; inherited vendor lint unchanged. Full image execution, Nginx/WebSocket/native session, live database/Telegram/Render acceptance remain NOT RUN without Docker/services. No isolated Python native rerun for packaging-only change.
+- [ ] Operator must deploy latest active-branch commit with default Dockerfile, correct secrets/disk/health check and no stale command override. Existing public-room security/recovery/lint gates, native VC integration and full multi-tenant platform remain unfinished.

@@ -40,3 +40,13 @@ test('full image includes both sources, browser build, gateway and supervised st
  assert.ok(supervisor.includes("process.once('SIGTERM'"));assert.ok(supervisor.includes("child.kill('SIGTERM')"));assert.ok(supervisor.includes("child.kill('SIGKILL')"));
  assert.ok(readFileSync('deploy/render/bootstrap-full.sh','utf8').includes('exec gosu node node'));
 });
+test('default Dockerfile starts the full application, preserves opt-in VC and uses supplied Render origin',()=>{
+ const docker=readFileSync('Dockerfile','utf8');
+ assert.ok(docker.includes('AS web-build'));assert.ok(docker.includes('AS bot-build'));
+ assert.ok(docker.includes('bootstrap-full.sh'));assert.ok(!docker.includes('dist/scripts/run-playback.js'));
+ assert.ok(docker.includes('ARG PUBLIC_APP_URL=https://multi-musicbot.onrender.com'));
+ assert.equal(docker,readFileSync('Dockerfile.bot','utf8'),'compatibility path must not drift from default');
+ assert.ok(readFileSync('Dockerfile.vc','utf8').includes('dist/scripts/run-playback.js'));
+ const yaml=readFileSync('render.yaml','utf8');
+ assert.match(yaml,/dockerfilePath: \.\/Dockerfile\n/);assert.ok(yaml.includes('value: https://multi-musicbot.onrender.com'));
+});

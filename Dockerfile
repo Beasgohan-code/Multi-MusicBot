@@ -1,41 +1,40 @@
-# Operator-only Phase 0 image. No public Telegram handlers/onboarding yet.
-# Record resolved base digests/FFmpeg version with each deployment measurement.
-FROM node:22-bookworm-slim AS node-build
-WORKDIR /build
-COPY package.json package-lock.json tsconfig.json ./
+# Complete attributed Playeon bot + WebApp personal-test container.
+# Default Render application image. Native-VC operator image: Dockerfile.vc.
+FROM node:22-bookworm-slim AS web-build
+WORKDIR /build/web
+COPY vendor/playeon/playeon-web/package*.json ./
 RUN npm ci
-COPY apps ./apps
-COPY packages ./packages
-COPY scripts ./scripts
-RUN npm run build && npm prune --omit=dev
+COPY vendor/playeon/playeon-web/ ./
+ARG PUBLIC_APP_URL=https://multi-musicbot.onrender.com
+ARG BOT_USERNAME
+ENV NEXT_PUBLIC_ROOM_WS_URL=$PUBLIC_APP_URL NEXT_PUBLIC_BOT_USERNAME=$BOT_USERNAME NEXT_TELEMETRY_DISABLED=1
+RUN node -e 'try{const u=new URL(process.env.NEXT_PUBLIC_ROOM_WS_URL);if(u.protocol!=="https:"||u.username||u.password||u.pathname!=="/"||u.search||u.hash||!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(process.env.NEXT_PUBLIC_BOT_USERNAME||""))throw new Error();}catch{console.error("PUBLIC_BUILD_CONFIG_INVALID: set PUBLIC_APP_URL to an HTTPS origin and BOT_USERNAME without @");process.exit(1)}' && npm run build
 
-FROM python:3.11-slim-bookworm AS runtime
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg tini ca-certificates libstdc++6 \
+FROM node:22-bookworm-slim AS bot-build
+WORKDIR /build/bot
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+COPY vendor/playeon/playeon-bot/package*.json ./
+RUN npm ci --include=dev
+COPY vendor/playeon/playeon-bot/src ./src
+COPY vendor/playeon/playeon-bot/tsconfig.json ./tsconfig.json
+RUN npm run typecheck
+
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates ffmpeg python3 python3-venv tini gosu nginx \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=node-build /usr/local/bin/node /usr/local/bin/node
-ENV NODE_ENV=production \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    VOICE_PYTHON=/opt/voice/bin/python
+RUN python3 -m venv /opt/media && /opt/media/bin/pip install --no-cache-dir yt-dlp==2026.10.26
+ARG PUBLIC_APP_URL=https://multi-musicbot.onrender.com
+ARG BOT_USERNAME
+ENV PUBLIC_APP_URL=$PUBLIC_APP_URL BOT_USERNAME=$BOT_USERNAME
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 YTDLP_BIN=/opt/media/bin/yt-dlp \
+    MONGO_DB=playeon_test SESSION_NAME=/var/data/playeon-session \
+    AI_ENABLED=false YTDLP_CONCURRENCY=2 ROOM_MAX_QUEUE=20
 WORKDIR /app
-COPY apps/voice-engine/requirements-kurigram.lock.txt /tmp/requirements-kurigram.lock.txt
-RUN python -m venv /opt/voice \
-    && /opt/voice/bin/python -m pip install --no-cache-dir -r /tmp/requirements-kurigram.lock.txt \
-    && rm /tmp/requirements-kurigram.lock.txt
-COPY --from=node-build /build/node_modules ./node_modules
-COPY --from=node-build /build/package.json ./package.json
-COPY --from=node-build /build/dist/apps ./dist/apps
-COPY --from=node-build /build/dist/packages ./dist/packages
-COPY --from=node-build /build/dist/scripts ./dist/scripts
-COPY apps/voice-engine/*.py ./apps/voice-engine/
-COPY scripts/check_voice_compatibility.py ./scripts/check_voice_compatibility.py
-RUN groupadd --gid 10001 app \
-    && useradd --uid 10001 --gid app --create-home app \
-    && mkdir -p /media \
-    && chown app:app /media
-USER app
-# Runner exits when its bounded queue is drained; this is not a polling bot.
+COPY --from=web-build --chown=node:node /build/web /app/web
+COPY --from=bot-build --chown=node:node /build/bot /app/bot
+COPY vendor/playeon/LICENSE vendor/playeon/UPSTREAM.json /app/
+COPY deploy/render/validate.mjs deploy/render/full-config.mjs deploy/render/start-full.mjs deploy/render/full-nginx.conf deploy/render/bootstrap-full.sh /opt/deploy/
+RUN mkdir -p /var/data && chown node:node /var/data
 STOPSIGNAL SIGTERM
-ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "dist/scripts/run-playback.js"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/bin/sh", "/opt/deploy/bootstrap-full.sh"]
