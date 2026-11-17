@@ -1,5 +1,7 @@
 # Architecture specification
 
+Current deployment source of truth: **only root `Dockerfile`** with root `render.yaml`. Alternate Dockerfiles/split deployment were removed at the user's request. Older filename references in historical checkpoints below are not current deployment instructions.
+
 Status: target architecture with a partially implemented Phase 0 prototype; implementation audit and safety gates are recorded below. This specification and PHASE_0_ACCEPTANCE.md supersede conflicting voice-adapter preferences in earlier planning notes. Repository: Beasgohan-code/Multi-MusicBot; no new repository is needed.
 
 See [MASTER_ROADMAP.md](MASTER_ROADMAP.md) for the full A–Q scope and staged acceptance gates.
@@ -320,3 +322,10 @@ Tests cover configuration derivation/denials, actual loopback HTTP aggregate hea
 User supplied `https://multi-musicbot.onrender.com` and a successful root Python-image build followed by `PHASE0_EXECUTION_FAILED`. This proves image selection/startup failure, not a specific missing grant/credential or a working live endpoint. To prevent repeated wrong-default deployment, root `Dockerfile` now starts the combined bot/WebApp/gateway. The former root image is preserved unchanged as `Dockerfile.vc`; `Dockerfile.bot` is an identical compatibility path enforced by regression test. The single-service Blueprint selects root `Dockerfile`; supplied app URL is its explicit public origin default and is a non-secret Docker build/runtime default. Bot username remains a required public build binding; secrets remain runtime-only. A sanitized startup marker identifies the combined application. No deployed Render settings, secrets or service state were changed by local edits.
 
 All native-VC image contracts, non-root execution and existing-directory/file-collision regressions now target the explicit `Dockerfile.vc`; no tests or safety predicates were removed. The provided URL must be verified by the operator; no external HTTP probe is claimed. Combined image/Nginx/native-session/real-database/Telegram/Render acceptance, production security/lint issues and full platform integration remain open.
+
+
+### Sole deployment image and corrected Docker source filtering
+
+All four alternate Dockerfiles and obsolete split-service YAML/bootstrap/start script are removed. Only root combined `Dockerfile` remains; native-VC/application source and behavior tests are retained. Container contracts now exercise the active full-app image; directory-idempotency/content-preservation/file-collision checks run against the active session-disk bootstrap, rather than an obsolete image.
+
+The reported real bot build failure exposed `**/logs` excluding eight `src/services/logs/*.ts` modules. `.dockerignore` now targets root/component runtime-log directories and `**/*.log`, without a broad folder-name exclusion or negation that re-includes secrets. A dev-only Apache-2.0 `@balena/dockerignore` matcher (1.0.2, no runtime dependencies) tests actual Docker-style filtering for every pinned bot/web source path and representative secret/runtime/build outputs. It is not a new app/runtime dependency. Reconstructed filtered source reproduced all eight TS2307 errors before the fix and real TypeScript succeeds after; Docker/Nginx execution and native/live acceptance remain unverified.

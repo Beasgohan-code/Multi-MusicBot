@@ -1,5 +1,5 @@
 # Complete attributed Playeon bot + WebApp personal-test container.
-# Default Render application image. Native-VC operator image: Dockerfile.vc.
+# Sole deployment image: combined bot, WebApp and gateway.
 FROM node:22-bookworm-slim AS web-build
 WORKDIR /build/web
 COPY vendor/playeon/playeon-web/package*.json ./

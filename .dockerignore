@@ -25,4 +25,7 @@ docs
 **/.next
 **/dist
 **/*.tsbuildinfo
-**/logs
+logs/
+vendor/playeon/playeon-bot/logs/
+vendor/playeon/playeon-web/logs/
+**/*.log

@@ -33,20 +33,18 @@ test('gateway splits HTTP page and WebSocket room while retaining media/range st
  assert.ok(nginx.includes('listen __PORT__'));assert.ok(nginx.includes('proxy_http_version 1.1'));
 });
 test('full image includes both sources, browser build, gateway and supervised startup, with no secret build args',()=>{
- const docker=readFileSync('Dockerfile.bot','utf8');
+ const docker=readFileSync('Dockerfile','utf8');
  for(const item of ['AS web-build','AS bot-build','/app/web','/app/bot','nginx','bootstrap-full.sh','MONGO_DB=playeon_test'])assert.ok(docker.includes(item),item);
  assert.doesNotMatch(docker,/ARG (BOT_TOKEN|API_HASH|ROOM_JWT_SECRET)/);
  const supervisor=readFileSync('deploy/render/start-full.mjs','utf8');
  assert.ok(supervisor.includes("process.once('SIGTERM'"));assert.ok(supervisor.includes("child.kill('SIGTERM')"));assert.ok(supervisor.includes("child.kill('SIGKILL')"));
  assert.ok(readFileSync('deploy/render/bootstrap-full.sh','utf8').includes('exec gosu node node'));
 });
-test('default Dockerfile starts the full application, preserves opt-in VC and uses supplied Render origin',()=>{
+test('sole default Dockerfile starts full application and uses supplied Render origin',()=>{
  const docker=readFileSync('Dockerfile','utf8');
  assert.ok(docker.includes('AS web-build'));assert.ok(docker.includes('AS bot-build'));
  assert.ok(docker.includes('bootstrap-full.sh'));assert.ok(!docker.includes('dist/scripts/run-playback.js'));
  assert.ok(docker.includes('ARG PUBLIC_APP_URL=https://multi-musicbot.onrender.com'));
- assert.equal(docker,readFileSync('Dockerfile.bot','utf8'),'compatibility path must not drift from default');
- assert.ok(readFileSync('Dockerfile.vc','utf8').includes('dist/scripts/run-playback.js'));
  const yaml=readFileSync('render.yaml','utf8');
  assert.match(yaml,/dockerfilePath: \.\/Dockerfile\n/);assert.ok(yaml.includes('value: https://multi-musicbot.onrender.com'));
 });

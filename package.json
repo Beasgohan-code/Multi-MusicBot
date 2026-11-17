@@ -17,6 +17,7 @@
     "phase0:mode": "tsx scripts/playback-mode.ts"
   },
   "devDependencies": {
+    "@balena/dockerignore": "^1.0.2",
     "@types/node": "^22.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.9.0"

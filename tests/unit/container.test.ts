@@ -5,18 +5,18 @@ import {spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const read=(path:string)=>readFileSync(path,'utf8');
-test('container builds compiled Node runtime and selected isolated native voice baseline',()=>{
- const docker=read('Dockerfile.vc');
- for(const expected of ['node:22-bookworm-slim','python:3.11-slim-bookworm','npm ci','npm run build','npm prune --omit=dev','requirements-kurigram.lock.txt','python -m venv /opt/voice','ffmpeg','tini','USER app','dist/scripts/run-playback.js'])assert.ok(docker.includes(expected),expected);
+test('container builds both applications and includes media runtime with no secret build arguments',()=>{
+ const docker=read('Dockerfile');
+ for(const expected of ['node:22-bookworm-slim','AS web-build','AS bot-build','npm ci','npm run build','npm run typecheck','/app/bot','/app/web','ffmpeg','tini','nginx','bootstrap-full.sh'])assert.ok(docker.includes(expected),expected);
  assert.doesNotMatch(docker,/COPY\s+\.\s/i);
  assert.doesNotMatch(docker,/^\s*(?:ARG|ENV)\s+(?:ASSISTANT_SESSION|API_HASH|WORKER_GRANT|MONGODB_URI|BOT_TOKEN)\b/m);
 });
-test('container default command uses direct Node and init forwards signals to the runner',()=>{
- const docker=read('Dockerfile.vc');
- assert.match(docker,/ENTRYPOINT \["\/usr\/bin\/tini", "--"\]/);
- assert.match(docker,/CMD \["node", "dist\/scripts\/run-playback.js"\]/);
- assert.match(docker,/VOICE_PYTHON=\/opt\/voice\/bin\/python/);
- assert.doesNotMatch(docker,/^EXPOSE\b/m);
+test('container starts supervised stack under tini and drops privileges before application startup',()=>{
+ const docker=read('Dockerfile');
+ assert.match(docker,/ENTRYPOINT \["\/usr\/bin\/tini", "--", "\/bin\/sh", "\/opt\/deploy\/bootstrap-full.sh"\]/);
+ assert.match(read('deploy/render/bootstrap-full.sh'),/exec gosu node node/);
+ assert.match(read('deploy/render/start-full.mjs'),/process.once\('SIGTERM'/);
+ assert.doesNotMatch(docker,/dist\/scripts\/run-playback.js/);
 });
 test('build context excludes credentials, sessions, media and local environments',()=>{
  const rules=read('.dockerignore').split(/\r?\n/);
@@ -24,12 +24,12 @@ test('build context excludes credentials, sessions, media and local environments
  assert.ok(!rules.some(rule=>rule.startsWith('!')),'no secret-exclusion overrides');
 });
 
-test('VC image media directory setup succeeds when absent or already present, without hiding file collisions',{skip:process.platform==='win32'},()=>{
- const command=read('Dockerfile.vc').match(/&& (mkdir[^\\\n]+)\\/);
- assert.ok(command,'expected standalone media mkdir build step');
+test('session disk setup succeeds when absent or already present, without hiding file collisions',{skip:process.platform==='win32'},()=>{
+ const command=read('deploy/render/bootstrap-full.sh').match(/^(mkdir[^\n]+)$/m);
+ assert.ok(command,'expected standalone session mkdir bootstrap step');
  const root=mkdtempSync(join(tmpdir(),'voice-image-dir-'));
  const directory=join(root,'media'),sentinel=join(directory,'keep.txt'),collision=join(root,'file');
- const run=(target:string)=>spawnSync('sh',['-c',command[1]!.trim().replace('/media',JSON.stringify(target))],{encoding:'utf8'});
+ const run=(target:string)=>spawnSync('sh',['-c',command[1]!.trim().replace('/var/data',JSON.stringify(target))],{encoding:'utf8'});
  try{
   assert.equal(run(directory).status,0,'first creation must succeed');
   writeFileSync(sentinel,'preserved');

@@ -21,22 +21,21 @@ test('Render bot requires cache and persistent session while web does not requir
  assert.ok(validateDeployment('bot',{...env,SESSION_NAME:'./session'}).includes('SESSION_NAME'));
  assert.deepEqual(validateDeployment('web',env),[]);
 });
-test('Render blueprint points to combined Docker service and does not replace existing VC image',()=>{
+test('Render blueprint points only to combined Docker service without operator replay arguments',()=>{
  const yaml=readFileSync('render.yaml','utf8');
  assert.ok(yaml.includes('dockerfilePath: ./Dockerfile\n'));assert.ok(!yaml.includes('fromService:'));
  assert.ok(yaml.includes('healthCheckPath: /health'));assert.ok(yaml.includes('mountPath: /var/data'));
  assert.ok(!yaml.includes('ASSISTANT_SESSION'));assert.ok(!yaml.includes('--enqueue'));
- assert.match(readFileSync('Dockerfile.vc','utf8'),/dist\/scripts\/run-playback.js/);
+ assert.ok(!yaml.includes('Dockerfile.vc'));
 });
 test('Docker deployment retains signal forwarding, uses mounted-disk privilege drop and excludes build artifacts',()=>{
- const bot=readFileSync('deploy/render/bot.Dockerfile','utf8');
- const web=readFileSync('deploy/render/web.Dockerfile','utf8');
- assert.ok(bot.includes('npm ci --include=dev'));assert.ok(bot.includes('npm run typecheck'));
- assert.ok(bot.includes('tini'));assert.ok(bot.includes('bootstrap-bot.sh'));
- assert.match(readFileSync('deploy/render/bootstrap-bot.sh','utf8'),/exec gosu node/);
- assert.match(readFileSync('deploy/render/start.sh','utf8'),/exec node --import tsx src\/index.ts/);
- assert.ok(web.includes('USER node'));assert.ok(web.includes('ARG NEXT_PUBLIC_ROOM_WS_URL'));
- assert.ok(!/ARG (BOT_TOKEN|API_HASH|ROOM_JWT_SECRET)/.test(web));
+ const docker=readFileSync('Dockerfile','utf8');
+ assert.ok(docker.includes('npm ci --include=dev'));assert.ok(docker.includes('npm run typecheck'));
+ assert.ok(docker.includes('tini'));assert.ok(docker.includes('bootstrap-full.sh'));
+ assert.match(readFileSync('deploy/render/bootstrap-full.sh','utf8'),/exec gosu node/);
+ assert.match(readFileSync('deploy/render/start-full.mjs','utf8'),/launch\('bot','node',\['--import','tsx'/);
+ assert.ok(docker.includes('--chown=node:node'));assert.ok(docker.includes('ARG PUBLIC_APP_URL='));
+ assert.ok(!/ARG (BOT_TOKEN|API_HASH|ROOM_JWT_SECRET)/.test(docker));
  assert.ok(readFileSync('.dockerignore','utf8').includes('**/.next'));
 });
 
@@ -45,7 +44,7 @@ test('invalid port and malformed administrator lists cannot bypass startup valid
  assert.deepEqual(validateDeployment('bot',{...env,PORT:'10000',DEV_IDS:'123,456'}),[]);
 });
 test('direct Render bot Dockerfile is at repo root and matches Blueprint with safe defaults',()=>{
- const docker=readFileSync('Dockerfile.bot','utf8');
+ const docker=readFileSync('Dockerfile','utf8');
  const yaml=readFileSync('render.yaml','utf8');
  assert.ok(yaml.includes('dockerfilePath: ./Dockerfile\n'));
  assert.ok(docker.includes('SESSION_NAME=/var/data/playeon-session'));

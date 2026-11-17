@@ -1,5 +1,7 @@
 # Phase 0 — voice feasibility acceptance checklist
 
+Deployment note: only the root `Dockerfile` remains. Alternate image/split-service paths in older evidence checkpoints were subsequently removed; use the current README/root Blueprint.
+
 Status: Phase 0 implementation exists and passes the offline suites recorded below; real Telegram/Render acceptance is NOT RUN. Check boxes require the corresponding recorded evidence, not code existence.
 
 Selected offline baseline: Python/Kurigram 2.2.26, PyTgCalls 2.3.3, ntgcalls 2.2.5; isolated Wzgram 3.1.7 compatibility failed. Earlier Node-first candidate ordering below is historical; apply the same behavior/security gates to the selected Python adapter.
@@ -272,3 +274,10 @@ Reported Render build fails at root image `mkdir /media` because the directory a
 The user's next log shows the fixed VC image built successfully, then its operator entrypoint exited with `PHASE0_EXECUTION_FAILED`. This is not a full-app failure diagnosis or live playback evidence. Root `Dockerfile` is now the combined bot/WebApp default; original native-VC image preserved unchanged in `Dockerfile.vc`. `Dockerfile.bot` stays identical to default by test. User's supplied `https://multi-musicbot.onrender.com` is the explicit public build/runtime/Blueprint default; no network verification is claimed. Startup/build diagnostics identify the full stack/public inputs without exposing secrets, and README instructs existing-service redeploy and BotFather `room` URL.
 
 Default-image regression observed RED first; all existing native/container/ownership tests retained with updated opt-in image path. Build/typecheck PASS, **172 Node PASS**, regular Python **21 PASS / 3 SKIP**, real Mongo **9 SKIP** without configured target. No root lint script, no new isolated Python/native run. Docker engine unavailable: combined image/Nginx/real DB/session/Telegram/Render execution still NOT RUN. Preserving the VC prototype does not make it a working public web deployment; production/full-platform gates remain open.
+
+
+### Render logger-source exclusion fix and sole deployment image
+
+User reported eight missing `src/services/logs/*.js` imports during the correct bot build. The corresponding `.ts` source existed but Docker's broad `**/logs` exclusion omitted it. Three new Docker-context tests observed RED before correction/deletion cleanup. Scoped runtime-log exclusions now preserve all pinned bot/web source modules while denying secrets/dependencies/build artifacts. TypeScript imports and strict compiler checks were not relaxed. A real filtered-source reconstruction reproduces all eight original TS2307 errors with old rules and passes the actual bot compiler after correction (installed dependencies reused, not an image build).
+
+At the user's explicit request, removed four alternate Dockerfiles and obsolete split YAML/startup scripts. Only root combined `Dockerfile` remains. Source/native behavior tests retained; active image contracts and the session-directory shell regression replace obsolete image-specific contracts. Root build/typecheck PASS, **175 Node PASS**, regular Python **21 PASS / 3 SKIP**, real Mongo **9 SKIP** without target. Docker-compatible matcher is dev-only Apache-2.0; vendor source/provenance unchanged. No Docker engine: image/native-session/Nginx/WebSocket/Render/live database/Telegram acceptance still NOT RUN. Existing inherited web lint/security/recovery limitations and full platform gates remain open.
