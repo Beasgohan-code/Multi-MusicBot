@@ -6,6 +6,24 @@ MultiMusicBot is a Telegram-first bot-hosting platform in development. The goal 
 
 **Status: Phase 0 engineering prototype. Not production-ready.** Local queue, lease, child-process and UI tests exist. Real Telegram audio playback, crash reconciliation and Render feasibility have not passed live acceptance. This repository does not yet offer a working `/clone` flow or a deployed dashboard.
 
+## Direct Playeon personal-test copy
+
+At your request, [vendor/playeon](vendor/playeon/README.md) now contains the actual **Playeon** source for **personal, non-commercial evaluation**, isolated from MultiMusicBot. **Original author: Sushi <contact@xysushi.in> / Playeon Project.** Original branding, credits and [license](vendor/playeon/LICENSE) are preserved; this is not original MultiMusicBot implementation. Commercial/monetized use requires the copyright holder's written permission. [UPSTREAM.json](vendor/playeon/UPSTREAM.json) records upstream commit `6ec6097bc7f5db19583618c226a5e4c410b90cee`, original file hashes and explicit local patches.
+
+Local evaluation patches fix the bot privacy-command syntax, replace build-time Google Fonts downloads with system fonts, update Next.js/eslint-config-next together to 16.4.6, and apply non-force dependency audit fixes. Bot typecheck and WebApp production build pass; both component audits report zero known vulnerabilities at this checkpoint. Web lint still fails (4 errors / 11 warnings); production readiness/live playback is **not** established.
+
+```sh
+npm --prefix vendor/playeon/playeon-bot ci --ignore-scripts
+npm --prefix vendor/playeon/playeon-web ci --ignore-scripts
+npm --prefix vendor/playeon/playeon-bot run typecheck
+# Set your own NEXT_PUBLIC_ROOM_WS_URL before building; see below.
+npm --prefix vendor/playeon/playeon-web run build
+```
+
+For a live **private test**, separately provision MongoDB, Redis, FFmpeg/yt-dlp and a dedicated test bot/group. Copy the two component `.env.example` files to `.env` locally and fill them through a secure editor/secret store; never share their contents here. Use the actual component templates/code rather than assuming upstream README variable names are exact. Set `WEB_PUBLIC_URL`, `ROOM_PUBLIC_URL`, `BOT_USERNAME`, a fresh `ROOM_JWT_SECRET`, and the web component's `NEXT_PUBLIC_ROOM_WS_URL` to **your own** origins (no trailing `/ws` on that HTTP(S) origin). Configure required Telegram/database values on both sides. `NEXT_PUBLIC_*` values are public and build-time: rebuild after changing them; never put secrets there. Keep `DEV_MODE` unset and use `NODE_ENV=production`; development mode has authorization bypasses. Do not use upstream public-host defaults or broad public DB access to work around configuration.
+
+Then run the bot and web in separate terminals using `npm --prefix vendor/playeon/playeon-bot start` and `npm --prefix vendor/playeon/playeon-web start`. This is a setup guide, **not evidence a live session works**: no credentials/databases/network playback were used here. Do not run upstream `deploy.sh` blindly; hosting/security/termination behavior still needs review. Media must be authorized; no private cookies or access-control bypasses. Original Playeon is a browser lounge and is **not wired into this platform's Python VC path or owner mode setting**. Its rooms do not inherit our lease/tenant safety. The root Dockerfile still runs the separate MultiMusicBot operator prototype, not this copy. Do not deploy this evaluation copy as a public multi-tenant service.
+
 ## What “cloning a bot” means
 
 A clone is a separately registered Telegram bot using this platform's shared runtime—not a copied Telegram account, copied session or automatically created BotFather bot.

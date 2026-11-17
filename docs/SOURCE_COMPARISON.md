@@ -70,3 +70,14 @@ Gate: lounge/auth/realtime implementation follows ownership settlement, durable 
 
 
 User-required destination choice is now explicit: preserve Telegram VC output and allow the owner to select an independent WebApp player, not a copied Playeon deployment or simultaneous-output assumption. Current code only persists desired `vc|webapp` preference and blocks VC startup for selected WebApp mode; no browser/backend playback exists yet. The earlier licensing and authenticated-room/media gates remain unchanged.
+
+
+### User-requested direct personal evaluation copy
+
+The user explicitly changed direction from independent rebuild to testing the actual upstream clone. `vendor/playeon` now preserves all 280 tracked upstream files at the pinned commit, original license/branding/attribution and an `UPSTREAM.json` baseline plus five documented local file changes. This is a separate personal/noncommercial evaluation copy, **not a commercial port into the hosting runtime**. Local patches fix an actual bot syntax error, remove network font build dependency, and update vulnerable dependencies including Next/eslint-config-next 16.4.6. No credit replacement or original-authorship claim.
+
+Observed before fixes: bot typecheck syntax error; web build blocked fetching Google Fonts; production dependency audits bot 3 advisories (including critical), web 4 (including critical). After fixes: bot typecheck PASS, web production build PASS, both full audits 0 known advisories. Web lint FAIL: 4 errors / 11 warnings (React effect/ref usage plus warnings), not suppressed. Upstream installation used `npm ci --ignore-scripts`; no deploy script, credentials, database connection or Telegram execution. This does not verify dependency supply-chain safety or live playback.
+
+Original files/hashes and intentional changes are checked by two root regression tests. The personal test copy remains isolated from platform settings, Python VC and lease guarantees. Before public exposure: fresh review of auth/dev bypasses, room/media token transport, upstream-host defaults, user content/media handling, logs, bounded cleanup/recovery, rate limiting and dependency updates. Commercial permission and existing full platform acceptance gates remain necessary; no production-ready claim follows from a successful Next build.
+
+Staged credential-pattern scan and root Markdown links passed; generated dependencies/build outputs were not staged. Full staged whitespace check reports inherited upstream blank EOF lines/trailing CSS spaces in eight unchanged source files; the non-vendor change check passes. These baseline files were preserved byte-for-byte rather than silently reformatting the snapshot.

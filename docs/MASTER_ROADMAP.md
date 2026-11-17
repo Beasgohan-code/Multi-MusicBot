@@ -280,7 +280,7 @@ New OS failure cases use injected syscall outcomes with real local transport chi
 - [ ] Next gate: build/run the container on an approved Docker host and perform disposable real-Mongo acceptance, then operator-controlled live Phase 0. Runtime lifecycle/restart reconciliation, host/escaped-descendant cleanup, complete audit coverage, authenticated controller/factory, Telegram command UI and subsequent required scope remain unfinished. The image is not a complete bot; onboarding remains disabled.
 
 
-### Current delivery evidence — owner VC / WebApp preference
+### Owner VC / WebApp preference checkpoint
 
 - [x] User explicitly requires owner-selectable original Telegram VC or independent Playeon-like WebApp playback. Added this as required per-bot destination scope, not an optional replacement of VC or permission to copy upstream. No WebApp playback readiness claim.
 - [x] Observed missing-repository RED before implementation. Added durable desired preference on the existing bot document, strict `vc|webapp` validation, owner/non-suspended scope and majority-acknowledged revision CAS. No upsert, URL field, automatic retry or ownership reset. Legacy bots default to VC; malformed state fails closed.
@@ -289,3 +289,14 @@ New OS failure cases use injected syscall outcomes with real local transport chi
 - [ ] Next: validate real Mongo and container/live VC acceptance, continue conservative ownership/restart recovery, then authenticated owner mode controls and WebApp initData/session/media backend followed by independent 2D browser player. No public UI/backend or WebApp playback implemented in this increment. Complete desired/applied settings/outbox/history remains required.
 
 The requested WebApp player is not delivered by storing a preference. Do not expose unauthenticated media or silently start VC to make it appear available. Existing Docker build/Render/Telegram blockers, all clone/group/plugin/web scope and onboarding gates remain intact.
+
+
+### Current delivery evidence — direct Playeon personal-test copy
+
+- [x] User requests actual Playeon clone for testing rather than waiting for independent implementation; copied pinned source under isolated `vendor/playeon` with original attribution/license, provenance and original hashes. No replacement of credits, commercial integration or discarded platform work. The ignored inspection clone remains separate.
+- [x] RED provenance check before vendoring; RED syntax regression and failed real bot typecheck / web build before patching. Two root tests verify baseline/local patch integrity, attribution, privacy syntax and no build-time Google Fonts. Five upstream files intentionally changed; Next/eslint-config-next 16.4.6 and non-force audit fixes locked.
+- [x] Actual upstream bot typecheck PASS and WebApp production build PASS. Both full component dependency audits now report 0 known vulnerabilities (previously both included critical advisories). Web lint remains FAIL: 4 errors / 11 warnings; no disabling rules. Root build/typecheck + 157 Node PASS; regular Python 21 PASS / 3 optional-native SKIP. Mongo 9 SKIP without target. Isolated native Python was not rerun for this upstream-only slice.
+- [ ] No live bot, Telegram audibility, database connection, Render deployment or production hardening acceptance. README provides private setup with own origins/secrets and explicit development-bypass/default-host warnings. Root Dockerfile is NOT the Playeon deployment. Vendor rooms do not inherit platform isolation/lease/mode guarantees; native VC integration is not delivered by this copy.
+- [ ] Next personal-test slice: address upstream lint errors, review authorization/media/logging defaults and validate private disposable database/Telegram/browser session under operator supervision. Existing independent platform/multi-bot/settings/VC/WebApp requirements remain, but do not call this vendor copy a completed multi-tenant production bot or use it commercially without permission.
+
+Vendor import review: staged credential-pattern/local-link checks pass; no dependency/build artifacts included. Non-vendor diff whitespace check passes; full check flags inherited whitespace in eight unchanged upstream files (documented, not suppressed/reformatted).
