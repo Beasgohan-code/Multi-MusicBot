@@ -1,0 +1,37 @@
+# Complete attributed Playeon bot + WebApp personal-test container.
+# The root Dockerfile remains the separate MultiMusicBot native-VC prototype.
+FROM node:22-bookworm-slim AS web-build
+WORKDIR /build/web
+COPY vendor/playeon/playeon-web/package*.json ./
+RUN npm ci
+COPY vendor/playeon/playeon-web/ ./
+ARG PUBLIC_APP_URL
+ARG BOT_USERNAME
+ENV NEXT_PUBLIC_ROOM_WS_URL=$PUBLIC_APP_URL NEXT_PUBLIC_BOT_USERNAME=$BOT_USERNAME NEXT_TELEMETRY_DISABLED=1
+RUN node -e 'try{const u=new URL(process.env.NEXT_PUBLIC_ROOM_WS_URL);if(u.protocol!=="https:"||u.username||u.password||u.pathname!=="/"||u.search||u.hash||!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(process.env.NEXT_PUBLIC_BOT_USERNAME||""))throw new Error();}catch{console.error("PUBLIC_BUILD_CONFIG_INVALID");process.exit(1)}' && npm run build
+
+FROM node:22-bookworm-slim AS bot-build
+WORKDIR /build/bot
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+COPY vendor/playeon/playeon-bot/package*.json ./
+RUN npm ci --include=dev
+COPY vendor/playeon/playeon-bot/src ./src
+COPY vendor/playeon/playeon-bot/tsconfig.json ./tsconfig.json
+RUN npm run typecheck
+
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates ffmpeg python3 python3-venv tini gosu nginx \
+    && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv /opt/media && /opt/media/bin/pip install --no-cache-dir yt-dlp==2026.10.26
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 YTDLP_BIN=/opt/media/bin/yt-dlp \
+    MONGO_DB=playeon_test SESSION_NAME=/var/data/playeon-session \
+    AI_ENABLED=false YTDLP_CONCURRENCY=2 ROOM_MAX_QUEUE=20
+WORKDIR /app
+COPY --from=web-build --chown=node:node /build/web /app/web
+COPY --from=bot-build --chown=node:node /build/bot /app/bot
+COPY vendor/playeon/LICENSE vendor/playeon/UPSTREAM.json /app/
+COPY deploy/render/validate.mjs deploy/render/full-config.mjs deploy/render/start-full.mjs deploy/render/full-nginx.conf deploy/render/bootstrap-full.sh /opt/deploy/
+RUN mkdir -p /var/data && chown node:node /var/data
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/bin/tini", "--", "/bin/sh", "/opt/deploy/bootstrap-full.sh"]

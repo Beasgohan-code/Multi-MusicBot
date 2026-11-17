@@ -21,9 +21,9 @@ test('Render bot requires cache and persistent session while web does not requir
  assert.ok(validateDeployment('bot',{...env,SESSION_NAME:'./session'}).includes('SESSION_NAME'));
  assert.deepEqual(validateDeployment('web',env),[]);
 });
-test('Render blueprint points to separate Docker services and does not replace existing VC image',()=>{
+test('Render blueprint points to combined Docker service and does not replace existing VC image',()=>{
  const yaml=readFileSync('render.yaml','utf8');
- assert.ok(yaml.includes('deploy/render/bot.Dockerfile'));assert.ok(yaml.includes('deploy/render/web.Dockerfile'));
+ assert.ok(yaml.includes('dockerfilePath: ./Dockerfile.bot'));assert.ok(!yaml.includes('fromService:'));
  assert.ok(yaml.includes('healthCheckPath: /health'));assert.ok(yaml.includes('mountPath: /var/data'));
  assert.ok(!yaml.includes('ASSISTANT_SESSION'));assert.ok(!yaml.includes('--enqueue'));
  assert.match(readFileSync('Dockerfile','utf8'),/dist\/scripts\/run-playback.js/);
@@ -43,4 +43,14 @@ test('Docker deployment retains signal forwarding, uses mounted-disk privilege d
 test('invalid port and malformed administrator lists cannot bypass startup validation',()=>{
  for(const patch of [{PORT:'0'},{PORT:'65536'},{PORT:'10000x'},{DEV_IDS:'not-a-user'},{DEV_IDS:'123,$ne'}])assert.ok(validateDeployment('bot',{...env,...patch}).length>0);
  assert.deepEqual(validateDeployment('bot',{...env,PORT:'10000',DEV_IDS:'123,456'}),[]);
+});
+test('direct Render bot Dockerfile is at repo root and matches Blueprint with safe defaults',()=>{
+ const docker=readFileSync('Dockerfile.bot','utf8');
+ const yaml=readFileSync('render.yaml','utf8');
+ assert.ok(yaml.includes('dockerfilePath: ./Dockerfile.bot'));
+ assert.ok(docker.includes('SESSION_NAME=/var/data/playeon-session'));
+ assert.ok(docker.includes('MONGO_DB=playeon_test'));
+ assert.ok(docker.includes('bootstrap-full.sh'));
+ const template=readFileSync('deploy/render/bot.env.example','utf8');
+ for(const key of ['API_ID','API_HASH','BOT_TOKEN','BOT_USERNAME','ROOM_JWT_SECRET','MONGO_URI','REDIS_URL','PUBLIC_APP_URL'])assert.match(template,new RegExp('^'+key+'=','m'));
 });

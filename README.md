@@ -6,30 +6,55 @@ MultiMusicBot is a Telegram-first bot-hosting platform in development. The goal 
 
 **Status: Phase 0 engineering prototype. Not production-ready.** Local queue, lease, child-process and UI tests exist. Real Telegram audio playback, crash reconciliation and Render feasibility have not passed live acceptance. This repository does not yet offer a working `/clone` flow or a deployed dashboard.
 
-## Deploy this repository to Render for a private test
+## Deploy the complete Playeon bot + WebApp together
 
-A root [render.yaml](render.yaml) now defines the **attributed Playeon bot + browser player** as two Docker web services. This is the runnable browser-path deployment, **not the completed multi-tenant platform or Python VC/WebApp switch**. Original author/license remain intact; personal, non-commercial evaluation only without applicable written commercial permission. Docker image execution/Render acceptance have not been run here.
+**Use root `Dockerfile.bot`.** It packages the actual attributed Playeon Telegram bot, full Next.js 2D/3D WebApp, FFmpeg/yt-dlp and an Nginx HTTP/WebSocket gateway in **one container, one Render service, one public URL**. It is not a frontend-only demo. Both application sources are copied; the bot and web retain the same patched upstream snapshot. The older split-service option remains in `deploy/render/split-services.yaml`.
 
-1. In Render choose **New → Blueprint**, connect this repository and select branch **`arena/2a88ec45-multi-musicbot`**. Use the root `render.yaml`, **not** a single Web Service with the root Dockerfile.
-2. Review the proposed resources before applying: **two paid starter services and a 1 GB persistent disk**. No exact price is promised. MongoDB and Redis are separately provisioned; this Blueprint does not create them or purchase anything from this workspace. Use dedicated test data, least-privilege credentials, TLS and restricted networking.
-3. Fill the bot service inputs below through Render's secret settings. Choose unique service names/public hostnames. If you change names in YAML, update every matching `fromService.name`. Enter the intended public origins; after Render assigns URLs verify them, fix any difference and **rebuild/redeploy the WebApp**. Never use upstream Playeon defaults.
-4. Apply/deploy. Bot health is `/health`; web health is `/`. Missing/unsafe configuration exits with `DEPLOY_CONFIG_INVALID` and field names only. The bot automatically maps Render's `PORT` and stores its Telegram session on `/var/data`; keep exactly one bot instance/token consumer. Auto-deploy is off. Restart loses in-memory rooms; do not assume seamless recovery.
-5. In **BotFather**, configure the bot's WebApp with **short name `room`** (the code links to `https://t.me/<bot>/room?startapp=...`) and your WebApp service URL ending in **`/room`**. Set the domain as Telegram requires, then test `/start`, `/room` and authorized media in a dedicated group through Telegram. Opening a room in an ordinary browser without signed Telegram initData is not an authentication test. Do not paste credentials or full room URLs/tokens into issues/chat.
+### Render settings
 
-| Bot service input | What to enter |
+- **New → Web Service → this repo**, branch `arena/2a88ec45-multi-musicbot`.
+- Runtime **Docker**, Dockerfile path **`Dockerfile.bot`**, build context **repository root**. Leave Docker Command empty so the supplied supervisor starts the complete stack.
+- Choose an operator-approved paid instance and mount a **1 GB persistent disk at `/var/data`** for the bot session. Keep **one instance** and no other bot process using this token. Review costs before creating anything.
+- Set health check **`/health`**. Render's `PORT` is used automatically. The combined health endpoint requires both bot and web to respond.
+- Alternatively use **New → Blueprint**, root `render.yaml`, which now creates this same **single-service** deployment and generates the signing secret. MongoDB and Redis must be provisioned separately; neither is embedded in the container.
+
+### Environment values to enter
+
+Copy field names from [deploy/render/bot.env.example](deploy/render/bot.env.example), but enter secrets in Render settings—not Git or chat.
+
+| Variable | Value |
 |---|---|
-| `API_ID`, `API_HASH` | Your Telegram application credentials |
-| `BOT_TOKEN` | Dedicated test bot token from BotFather; secret |
-| `BOT_USERNAME` | The same bot's username **without `@`** |
-| `DEV_IDS` | Your Telegram numeric user ID; comma-separated IDs only if needed |
-| `MONGO_URI` | Your restricted test Mongo connection URI |
-| `REDIS_URL` | Your dedicated Redis connection URI, preferably TLS (`rediss://`) |
-| `ROOM_PUBLIC_URL` | Bot service public **HTTPS origin**, e.g. `https://your-bot.onrender.com` — no `/ws`, query or path |
-| `WEB_PUBLIC_URL` | Web service public **HTTPS origin**, e.g. `https://your-web.onrender.com` |
+| `PUBLIC_APP_URL` | This service's public **HTTPS origin**, e.g. `https://your-music.onrender.com`; no `/room`, query or credentials |
+| `BOT_USERNAME` | Your Telegram bot username **without `@`** |
+| `API_ID` | Your Telegram application's numeric API ID |
+| `API_HASH` | Your Telegram application's API hash; secret |
+| `BOT_TOKEN` | Your dedicated test bot token from BotFather; secret |
+| `ROOM_JWT_SECRET` | Generate a random signing key; use the command below. Blueprint generates this automatically |
+| `MONGO_URI` | Restricted dedicated test MongoDB connection URI |
+| `REDIS_URL` | Dedicated Redis connection URI; preferably `rediss://` for TLS |
+| `DEV_IDS` | Optional: your numeric Telegram user ID; comma-separated if more than one |
 
-`ROOM_JWT_SECRET` is generated by the Blueprint and shared server-to-server with the WebApp, along with bot/Mongo bindings. `MONGO_DB=playeon_test` and the persistent `SESSION_NAME` are provided. `TELEGRAM_BOT_ID` is derived from the token prefix at startup. Browser-public room origin and bot username are supplied at **build time** from the bot settings; changing them requires a web rebuild. Secrets are not Docker build arguments or `NEXT_PUBLIC_*` values. Keep `DEV_MODE` unset; startup rejects its auth-bypass mode. The bot retains tsx because upstream discovers TypeScript commands, and its image builds native SQLite dependencies instead of assuming install scripts can be skipped.
+Generate the signing secret **locally** and paste its output into Render's secret field only:
 
-**Test status:** configuration/packaging tests pass, upstream bot typecheck and WebApp build passed previously. No Docker engine or live Render/Telegram/database credentials are available here. Upstream web lint and room/session/media security/recovery review remain open; URL token transport is inherited and must be hardened before broader exposure. Use a private test bot/group, avoid sharing room links, never expose production data, and do not call this a production-ready hosting platform. The separate native VC prototype and desired mode preference are preserved but not integrated into this Blueprint.
+```sh
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Defaults already in `Dockerfile.bot`: `NODE_ENV=production`, `MONGO_DB=playeon_test`, `SESSION_NAME=/var/data/playeon-session`, AI disabled, media concurrency 2 and queue cap 20. `TELEGRAM_BOT_ID`, both service origins and browser-public variables are derived; you do **not** need to enter assistant sessions, separate WebApp URLs or Python VC grants for this Playeon deployment. Keep `DEV_MODE` unset. `PUBLIC_APP_URL` and `BOT_USERNAME` must be available **during Docker build** too (the Dockerfile declares them as public build arguments); changing either requires a **rebuild**, not just restart. Render supplies Docker build arguments from matching service environment values. Verify your assigned service URL after creation; correct any mismatch and rebuild.
+
+In BotFather configure a Mini App with **short name `room`**, using **`PUBLIC_APP_URL/room`** as its URL and your domain as required by Telegram. Start the bot in a private test group; use `/start` and `/room`, then test authorized media through Telegram. Ordinary browser access has no signed Telegram initData. No secrets, tokens or full authenticated room/media URLs belong in screenshots/logs/issues.
+
+For Docker locally, supply the two public build arguments and a protected ignored environment file, then mount the session directory:
+
+```sh
+docker build -f Dockerfile.bot \
+  --build-arg PUBLIC_APP_URL=https://your-test-domain.example \
+  --build-arg BOT_USERNAME=YourTestBot -t multimusicbot-full .
+docker run --rm --env-file .env.full -p 10000:10000 \
+  --mount type=volume,src=playeon-session,dst=/var/data multimusicbot-full
+```
+
+**Evidence and limits:** root checks pass, with actual loopback HTTP tests for combined readiness. Docker/Nginx execution, real Mongo/Redis/Telegram playback and Render deployment are **not yet verified** here (no Docker engine). Startup checks deny missing/unsafe configuration and development bypass; original upstream room/media-token transport, web lint failures and broader auth/logging/recovery review remain open. Rooms remain in memory across this personal-test application: restart is not seamless recovery. Original author **Sushi / Playeon Project**, credits and license are preserved; commercial use needs written permission. This packages the **complete upstream browser application**, not the still-unfinished multi-tenant factory, owner mode application, or our Python native-VC integration. Root `Dockerfile` still runs that separate operator VC prototype. No production-ready or native-VC playback claim is made by this container.
 
 ## Direct Playeon personal-test copy
 
@@ -47,7 +72,7 @@ npm --prefix vendor/playeon/playeon-web run build
 
 For a live **private test**, separately provision MongoDB, Redis, FFmpeg/yt-dlp and a dedicated test bot/group. Copy the two component `.env.example` files to `.env` locally and fill them through a secure editor/secret store; never share their contents here. Use the actual component templates/code rather than assuming upstream README variable names are exact. Set `WEB_PUBLIC_URL`, `ROOM_PUBLIC_URL`, `BOT_USERNAME`, a fresh `ROOM_JWT_SECRET`, and the web component's `NEXT_PUBLIC_ROOM_WS_URL` to **your own** origins (no trailing `/ws` on that HTTP(S) origin). Configure required Telegram/database values on both sides. `NEXT_PUBLIC_*` values are public and build-time: rebuild after changing them; never put secrets there. Keep `DEV_MODE` unset and use `NODE_ENV=production`; development mode has authorization bypasses. Do not use upstream public-host defaults or broad public DB access to work around configuration.
 
-Then run the bot and web in separate terminals using `npm --prefix vendor/playeon/playeon-bot start` and `npm --prefix vendor/playeon/playeon-web start`. This is a setup guide, **not evidence a live session works**: no credentials/databases/network playback were used here. Do not run upstream `deploy.sh` blindly; hosting/security/termination behavior still needs review. Media must be authorized; no private cookies or access-control bypasses. Original Playeon is a browser lounge and is **not wired into this platform's Python VC path or owner mode setting**. Its rooms do not inherit our lease/tenant safety. The root Dockerfile still runs the separate MultiMusicBot operator prototype, not this copy. Do not deploy this evaluation copy as a public multi-tenant service.
+Then run the bot and web in separate terminals using `npm --prefix vendor/playeon/playeon-bot start` and `npm --prefix vendor/playeon/playeon-web start`. This is a setup guide, **not evidence a live session works**: no credentials/databases/network playback were used here. Do not run upstream `deploy.sh` blindly; hosting/security/termination behavior still needs review. Media must be authorized; no private cookies or access-control bypasses. Original Playeon is a browser lounge and is **not wired into this platform's Python VC path or owner mode setting**. Its rooms do not inherit our lease/tenant safety. The root `Dockerfile` still runs the separate MultiMusicBot operator prototype; use `Dockerfile.bot` for the combined copy. Do not deploy this evaluation copy as a public multi-tenant service.
 
 ## What “cloning a bot” means
 
