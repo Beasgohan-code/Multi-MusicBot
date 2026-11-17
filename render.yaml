@@ -1,0 +1,92 @@
+# Personal/non-commercial Playeon test deployment, NOT the multi-tenant VC platform.
+# Two paid web services plus a paid session disk. Review costs before applying.
+# Supply your OWN public origins; do not use upstream Playeon hostnames.
+services:
+  - type: web
+    name: multimusicbot-playeon-bot
+    runtime: docker
+    plan: starter
+    numInstances: 1
+    autoDeploy: false
+    dockerfilePath: ./deploy/render/bot.Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    disk:
+      name: playeon-session
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: BOT_USERNAME
+        sync: false
+      - key: DEV_IDS
+        sync: false
+      - key: ROOM_JWT_SECRET
+        generateValue: true
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB
+        value: playeon_test
+      - key: REDIS_URL
+        sync: false
+      - key: ROOM_PUBLIC_URL
+        sync: false
+      - key: WEB_PUBLIC_URL
+        sync: false
+      - key: SESSION_NAME
+        value: /var/data/playeon-session
+      - key: AI_ENABLED
+        value: "false"
+      - key: YTDLP_CONCURRENCY
+        value: "2"
+      - key: ROOM_MAX_QUEUE
+        value: "20"
+  - type: web
+    name: multimusicbot-playeon-web
+    runtime: docker
+    plan: starter
+    numInstances: 1
+    autoDeploy: false
+    dockerfilePath: ./deploy/render/web.Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_ROOM_WS_URL
+        fromService:
+          type: web
+          name: multimusicbot-playeon-bot
+          envVarKey: ROOM_PUBLIC_URL
+      - key: NEXT_PUBLIC_BOT_USERNAME
+        fromService:
+          type: web
+          name: multimusicbot-playeon-bot
+          envVarKey: BOT_USERNAME
+      - key: BOT_TOKEN
+        fromService:
+          type: web
+          name: multimusicbot-playeon-bot
+          envVarKey: BOT_TOKEN
+      - key: ROOM_JWT_SECRET
+        fromService:
+          type: web
+          name: multimusicbot-playeon-bot
+          envVarKey: ROOM_JWT_SECRET
+      - key: MONGO_URI
+        fromService:
+          type: web
+          name: multimusicbot-playeon-bot
+          envVarKey: MONGO_URI
+      - key: MONGO_DB
+        fromService:
+          type: web
+          name: multimusicbot-playeon-bot
+          envVarKey: MONGO_DB

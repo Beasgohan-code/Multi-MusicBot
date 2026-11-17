@@ -291,7 +291,7 @@ New OS failure cases use injected syscall outcomes with real local transport chi
 The requested WebApp player is not delivered by storing a preference. Do not expose unauthenticated media or silently start VC to make it appear available. Existing Docker build/Render/Telegram blockers, all clone/group/plugin/web scope and onboarding gates remain intact.
 
 
-### Current delivery evidence — direct Playeon personal-test copy
+### Direct Playeon personal-test copy checkpoint
 
 - [x] User requests actual Playeon clone for testing rather than waiting for independent implementation; copied pinned source under isolated `vendor/playeon` with original attribution/license, provenance and original hashes. No replacement of credits, commercial integration or discarded platform work. The ignored inspection clone remains separate.
 - [x] RED provenance check before vendoring; RED syntax regression and failed real bot typecheck / web build before patching. Two root tests verify baseline/local patch integrity, attribution, privacy syntax and no build-time Google Fonts. Five upstream files intentionally changed; Next/eslint-config-next 16.4.6 and non-force audit fixes locked.
@@ -300,3 +300,12 @@ The requested WebApp player is not delivered by storing a preference. Do not exp
 - [ ] Next personal-test slice: address upstream lint errors, review authorization/media/logging defaults and validate private disposable database/Telegram/browser session under operator supervision. Existing independent platform/multi-bot/settings/VC/WebApp requirements remain, but do not call this vendor copy a completed multi-tenant production bot or use it commercially without permission.
 
 Vendor import review: staged credential-pattern/local-link checks pass; no dependency/build artifacts included. Non-vendor diff whitespace check passes; full check flags inherited whitespace in eight unchanged upstream files (documented, not suppressed/reformatted).
+
+
+### Current delivery evidence — Render browser-path test Blueprint
+
+- [x] User wants this repo deployable on Render while retaining the ultimate planned platform. Added root Blueprint with two explicit Docker services, bot persistent session disk, health paths, runtime shared secret bindings, single-instance/off-auto-deploy defaults. Paid service/disk costs require operator review; no resources purchased or deployed.
+- [x] Observed missing deployment-module RED before implementation. Seven local tests verify validation, auth-bypass/URL/secret/identity rejection, port/admin checks, Docker/Blueprint contracts, no native assistant config or replay arguments, and preserved root VC Dockerfile. Mounted disk bootstrap drops privileges before bot execution; web runs non-root; source-discovering bot retains tsx and builds native SQLite dependencies. Docker context excludes nested build outputs/logs.
+- [x] README now gives concrete Blueprint branch selection, inputs, origin/rebuild procedure and BotFather `room` app configuration. Reviewed all eight Markdown documents; no factory/settings/VC/WebApp/group/plugin scope removed. No new changes to vendored source or credits.
+- [x] Build/typecheck + 164 Node PASS; regular Python 21 PASS / 3 optional-native SKIP; Mongo 9 SKIP. Seven targeted deployment tests PASS; shell syntax PASS; actual startup validator rejects absent config without values. YAML parsing PASS; actual Render API/schema/image deployment NOT RUN. Vendor bot module import succeeds offline; prior vendor typecheck/web build evidence unchanged. No root lint script; vendor lint remains 4 errors / 11 warnings.
+- [ ] Next: run Docker builds/native SQLite startup on an approved Docker host, verify Blueprint through Render, then a private test with real Mongo/Redis/Telegram initData/media/network/termination checks. Existing URL-token transport/logging/auth/recovery issues block broader production exposure. This deploys browser playback only; full mode application/acknowledgement and Python VC integration remain unfinished. Do not present templates as completed platform acceptance.
