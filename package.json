@@ -13,7 +13,8 @@
     "check": "npm run build && npm test && npm run test:python",
     "test:integration": "tsx --test tests/integration/*.test.ts",
     "phase0": "tsx scripts/run-playback.ts",
-    "phase0:maintain": "tsx scripts/maintain-ownership.ts"
+    "phase0:maintain": "tsx scripts/maintain-ownership.ts",
+    "phase0:mode": "tsx scripts/playback-mode.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -191,6 +191,24 @@ Required execution bindings include `WORKER_GRANT`, `VOICE_BOT_ID`, `VOICE_CHAT_
 
 `--recover` preserves upcoming metadata; it does **not** clear assistant quarantine or prove native cleanup. This entrypoint now authenticates a provisioned worker grant, claims the fixed bot slot, heartbeats ownership and drains the runner before reporting shutdown. Provision matching `bots`, `worker_grants` (SHA-256 token hash only) and a stopped `workers` slot with generation 0 through a trusted operator. No public provisioning endpoint exists. Heartbeat loss aborts work promptly; the supervisor waits for runtime drain and the exact outstanding heartbeat/relay promise before persisting conservative quarantine. A timeout is not cancellation, and a late heartbeat cannot restore readiness. Finish persistence is also awaited without retry. A never-settling operation deliberately holds execution pending rather than falsely finishing the holder; bounded host escalation remains unfinished. No automatic restart or expiry takeover is enabled. It is still not an approved concurrent clone fleet.
 
+### VC / WebApp preference (partial, operator-only)
+
+The required owner choice is **`vc`** (Telegram group voice chat) or **`webapp`** (independent browser player). Existing bots without a preference default to VC. The desired preference is stored on the existing owner-scoped `bots` document with a compare-and-swap revision. There is **no WebApp playback backend or authenticated owner menu yet**. Selecting WebApp blocks the operator VC runner before queue/assistant access; it does not enable browser playback or fall back to VC.
+
+A trusted database operator can inspect/request a preference, after independently verifying `OWNER_ID` and the existing `VOICE_BOT_ID` ownership. Database access authorizes this tool; setting `OWNER_ID` is **not Telegram authentication**. Environment also requires `MONGODB_URI` and `MONGODB_DB`:
+
+```sh
+npm run phase0:mode                       # read desired mode/revision
+npm run phase0:mode -- webapp 0            # request WebApp if current revision is 0
+npm run phase0:mode -- vc 1                # new desired revision; not an ownership reset
+# Compiled container equivalent for inspection:
+# node dist/scripts/playback-mode.js
+```
+
+Use the **actual returned revision**, not the example numbers, for each request. A stale/concurrent request conflicts, suspended or mismatched-owner bots are denied, and ambiguous network writes must be inspected before retry. The tool never upserts a bot, stores a WebApp URL, clears quarantine, releases assistants or creates accounts. It reports `status: "unapplied"`: saving desired state is not a correlated runtime acknowledgement. This is a single-setting desired preference, not complete configuration history or desired/applied settings delivery.
+
+Mode admission is a **startup snapshot**. Changing it does not stop an active VC, move its queue to browsers, or authorize an assistant release. A future start reads the new choice; changes after that read affect a later start. Stop/drain/reconcile separately before any deployment-mode transition; existing quarantined-worker rules still apply. Native-call acceptance and authenticated WebApp/media/session/permission delivery remain gated. The eventual WebApp will be independently implemented; no Playeon code, assets or branding were copied.
+
 ### Ownership maintenance (trusted operators only)
 
 `npm run phase0:maintain` uses only `MONGODB_URI`, `MONGODB_DB` and `VOICE_BOT_ID`. Database credentials authorize this restricted local tool; it is not a tenant API. It archives/acknowledges at most 100 pending terminal receipts for that bot, drains pending ownership audit events, scans at most 100 expired workers and 100 expired assistants, quarantines matching holders and drains ownership events again. Run further batches if needed. Output contains counts, never credentials or raw database errors.

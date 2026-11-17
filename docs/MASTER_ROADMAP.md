@@ -271,10 +271,21 @@ No controller/onboarding, arbitrary media sources, decorative frontend or new cl
 New OS failure cases use injected syscall outcomes with real local transport children, not privileged live EPERM/native-call experiments. Onboarding, public clone lifecycle and frontend remain gated; full clone/settings/group/plugin/web scope is retained.
 
 
-### Current delivery evidence — shutdown admission and Docker test image
+### Shutdown admission and Docker test image checkpoint
 
 - [x] Preserved the interrupted shutdown increment: two RED admission regressions then synchronous public admission fence/private internal leave; four added tests cover normal shutdown, microtask calls, pending IPC and unbound child. No caller bypass for a forged leave operation.
 - [x] User requested Dockerfile/complete bot. Added multi-stage operator image, selected native lock, FFmpeg, non-root user and tini signal forwarding; compiled Node entrypoint needs no dev dependencies. Three static container contract tests observed RED before files existed. Added `.dockerignore` and existing README Docker/Render instructions including non-idempotent enqueue/restart warning. No paid resource or deployment created.
 - [x] Reviewed all eight Markdown plans and retained full bot/factory/multiple-bot/settings/plugins/groups/web scope. `npm run check`: build/typecheck and 145 Node PASS; regular Python 21 PASS / 3 optional-native SKIP; isolated Kurigram 24 PASS; Mongo 8 SKIP without target; no lint script.
 - [ ] Docker image build/native smoke/Render test remains NOT RUN: no Docker engine here. Static contract tests do not establish OS ABI/FFmpeg/Telegram compatibility. Docker tags/OS packages are not immutable digests; record resolved versions when building. Provision fixtures/credentials/database records outside source.
 - [ ] Next gate: build/run the container on an approved Docker host and perform disposable real-Mongo acceptance, then operator-controlled live Phase 0. Runtime lifecycle/restart reconciliation, host/escaped-descendant cleanup, complete audit coverage, authenticated controller/factory, Telegram command UI and subsequent required scope remain unfinished. The image is not a complete bot; onboarding remains disabled.
+
+
+### Current delivery evidence — owner VC / WebApp preference
+
+- [x] User explicitly requires owner-selectable original Telegram VC or independent Playeon-like WebApp playback. Added this as required per-bot destination scope, not an optional replacement of VC or permission to copy upstream. No WebApp playback readiness claim.
+- [x] Observed missing-repository RED before implementation. Added durable desired preference on the existing bot document, strict `vc|webapp` validation, owner/non-suspended scope and majority-acknowledged revision CAS. No upsert, URL field, automatic retry or ownership reset. Legacy bots default to VC; malformed state fails closed.
+- [x] Wired startup admission into the real operator runner before queue/assistant access: WebApp selection fails explicitly rather than starting VC. Existing playback isn't hot-switched. Trusted-operator inspect/request CLI added; it is not an authenticated owner Telegram menu. Desired state remains unapplied; no false runtime acknowledgement or full history claim.
+- [x] Ten local preference tests cover tenant denial, suspension, concurrent/stale writes, malformed inputs/state, ambiguous/unacknowledged writes and VC/WebApp separation. Added real-Mongo acceptance test, NOT RUN without target. Build/typecheck + 155 Node PASS, regular Python 21 PASS / 3 optional-native SKIP; isolated Kurigram 24 PASS. Mongo 9 SKIP; no lint script.
+- [ ] Next: validate real Mongo and container/live VC acceptance, continue conservative ownership/restart recovery, then authenticated owner mode controls and WebApp initData/session/media backend followed by independent 2D browser player. No public UI/backend or WebApp playback implemented in this increment. Complete desired/applied settings/outbox/history remains required.
+
+The requested WebApp player is not delivered by storing a preference. Do not expose unauthenticated media or silently start VC to make it appear available. Existing Docker build/Render/Telegram blockers, all clone/group/plugin/web scope and onboarding gates remain intact.

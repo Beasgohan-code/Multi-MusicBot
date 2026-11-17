@@ -1,3 +1,4 @@
+import {PlaybackPreferences,requireVoiceMode} from '../packages/database/playback-preferences.js';
 import {OwnershipOutbox} from '../packages/database/ownership-outbox.js';
 import {WorkerRegistry} from '../packages/database/workers.js';
 import {AuthenticatedSupervisor} from '../apps/bot-runtime/supervisor.js';
@@ -41,6 +42,9 @@ async function main(){
   process.on('SIGTERM',stop);process.on('SIGINT',stop);
   try{
    await supervisor.run(async(binding,signal)=>{
+    // Pin the owner's startup preference before queue mutation or assistant access.
+    // Existing VC sessions are never hot-switched by a preference write.
+    requireVoiceMode(await new PlaybackPreferences(db.collection('bots')).read(binding.botId,binding.ownerId));
     await queue.ensureIndexes();await queue.initialize();await leases.ensureIndexes();await audit.ensureIndexes();
     if(signal.aborted)throw new Error('SUPERVISOR_STOPPED');
     if(!await db.collection('assistants').findOne({assistantId:config.assistantId,enabled:true}))throw new Error('ASSISTANT_NOT_PROVISIONED');
@@ -63,4 +67,8 @@ async function main(){
 
  }finally{await client.close();}
 }
-main().catch(()=>{console.error('PHASE0_EXECUTION_FAILED: inspect scoped audit records; no automatic lease reset was performed.');process.exitCode=1;});
+main().catch((error:unknown)=>{
+ if(error instanceof Error&&error.message==='WEBAPP_PLAYBACK_NOT_AVAILABLE')console.error('WEBAPP_PLAYBACK_NOT_AVAILABLE: owner selected WebApp; no VC fallback or assistant start was attempted.');
+ else console.error('PHASE0_EXECUTION_FAILED: inspect scoped audit records; no automatic lease reset was performed.');
+ process.exitCode=1;
+});

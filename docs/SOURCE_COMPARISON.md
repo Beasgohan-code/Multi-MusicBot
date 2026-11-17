@@ -67,3 +67,6 @@ Adopt later: lightweight 2D lounge first with optional 3D; revisioned server tim
 Do not adopt development auth bypasses, query-string bearer tokens, cached privileges during authorization outages, group-only room identity, or random simulated progress percentages. Use fresh fail-closed authorization, short-lived tenant-bound/revocable credentials with secret-safe transport and actual correlated processing stages. README sub-50ms synchronization is unverified: inspected clock offset is a simple server timestamp difference, while master correction thresholds are around 1–1.2 seconds. Define and measure an RTT-aware drift budget before making synchronization claims.
 
 Gate: lounge/auth/realtime implementation follows ownership settlement, durable recovery and real Phase 0 acceptance. No new runtime dependency or third-party implementation was copied in this review.
+
+
+User-required destination choice is now explicit: preserve Telegram VC output and allow the owner to select an independent WebApp player, not a copied Playeon deployment or simultaneous-output assumption. Current code only persists desired `vc|webapp` preference and blocks VC startup for selected WebApp mode; no browser/backend playback exists yet. The earlier licensing and authenticated-room/media gates remain unchanged.

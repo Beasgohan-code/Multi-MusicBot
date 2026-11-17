@@ -140,3 +140,10 @@ Each scenario requires automated policy/contract coverage and relevant real Tele
 ## 9. Scope discipline
 
 G0 still proves one local file on one test call with the selected Python adapter and Render host. New G2/G4 features do not block that spike. Before implementation each item needs a schema, owner, error contract, capacity budget and acceptance evidence. Unresolved exact metrics/thresholds are configuration decisions to measure, not reasons to add fake dashboard values.
+
+
+### Explicit owner playback destination (required)
+
+Each clone owner can eventually choose `vc` (original Telegram group voice-chat output) or `webapp` (independent browser listening/player); default is VC. This is not permission for any room member to change the owner's bot mode. Configuration authorization is distinct from room listen/control permission. Destination changes require a new revision and a safe application boundary; never disconnect/release an assistant merely because a setting changed. Browser playback controls/timelines must not imply a Telegram VC operation completed.
+
+Current source implements only the desired owner-scoped preference, a trusted-operator CLI and the operator VC startup guard. WebApp choice is unavailable for playback and must not fall back to VC; desired writes remain unapplied and do not migrate an active queue/session. Authenticated owner controls, full settings history/delivery/acknowledgement and actual WebApp playback remain required behind their existing safety gates.
