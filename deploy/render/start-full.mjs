@@ -1,18 +1,14 @@
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:http';
 import {readFileSync,writeFileSync} from 'node:fs';
-import {fullEnvironment,servicesReady} from './full-config.mjs';
+import {fullEnvironment,createHealthHandler} from './full-config.mjs';
 let env;
 try{env=fullEnvironment(process.env);}catch(error){console.error(error.message);process.exit(1);}
 const port=env.PORT||'10000';
 if(['3000','3001','3067'].includes(port)){console.error('DEPLOY_CONFIG_INVALID: PORT conflicts with internal service');process.exit(1);}
 writeFileSync('/tmp/playeon-nginx.conf',readFileSync('/opt/deploy/full-nginx.conf','utf8').replace('__PORT__',port));
 const children=new Set();let stopping=false,exitCode=0,killTimer;
-const health=createServer(async(req,res)=>{
- if(req.url!=='/health'){res.writeHead(404).end();return;}
- const ready=!stopping&&await servicesReady();
- res.writeHead(ready?200:503,{'Content-Type':'text/plain','Cache-Control':'no-store'}).end(ready?'ok':'not ready');
-});
+const health=createServer(createHealthHandler(()=>stopping));
 function finish(){if(stopping&&children.size===0){clearTimeout(killTimer);health.close();process.exitCode=exitCode;}}
 function stop(code){
  if(stopping)return;stopping=true;exitCode=code;

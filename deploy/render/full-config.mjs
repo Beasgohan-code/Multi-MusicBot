@@ -22,3 +22,17 @@ export async function servicesReady(fetcher=fetch){
  }catch{return false;}
  finally{clearTimeout(timer);controller.abort();}
 }
+
+/** Shared deployment health handler; probes are injected only by offline tests. */
+export function createHealthHandler(isStopping, check=servicesReady){
+ return async(req,res)=>{
+  if(req.url!=='/health'){res.writeHead(404).end();return;}
+  let ready=false;
+  try{
+   // A completed probe is not current admission evidence if shutdown began
+   // while its HTTP requests were outstanding. Never cache/restore readiness.
+   if(!isStopping())ready=(await check())===true&&!isStopping();
+  }catch{ /* Health failures are unready, never raw error responses. */ }
+  res.writeHead(ready?200:503,{'Content-Type':'text/plain','Cache-Control':'no-store'}).end(ready?'ok':'not ready');
+ };
+}

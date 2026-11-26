@@ -15,7 +15,7 @@ MultiMusicBot is a Telegram-first bot-hosting platform in development. The goal 
 - **New → Web Service → this repo**, branch `arena/2a88ec45-multi-musicbot`.
 - Runtime **Docker**, Dockerfile path **`Dockerfile`**, build context **repository root**. Leave Docker Command empty so the supplied supervisor starts the complete stack.
 - Choose an operator-approved paid instance and mount a **1 GB persistent disk at `/var/data`** for the bot session. Keep **one instance** and no other bot process using this token. Review costs before creating anything.
-- Set health check **`/health`**. Render's `PORT` is used automatically. The combined health endpoint requires both bot and web to respond.
+- Set health check **`/health`**. Render's `PORT` is used automatically. The combined health endpoint requires both bot and web to respond. It returns 503 during shutdown, including when an older in-flight probe finishes successfully; rejected probes return a sanitized unready response.
 - Alternatively use **New → Blueprint**, root `render.yaml`, which now creates this same **single-service** deployment and generates the signing secret. MongoDB and Redis must be provisioned separately; neither is embedded in the container.
 
 ### Environment values to enter

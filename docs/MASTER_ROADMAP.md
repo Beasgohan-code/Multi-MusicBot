@@ -337,10 +337,18 @@ Vendor import review: staged credential-pattern/local-link checks pass; no depen
 - [ ] Operator must deploy latest active-branch commit with default Dockerfile, correct secrets/disk/health check and no stale command override. Existing public-room security/recovery/lint gates, native VC integration and full multi-tenant platform remain unfinished.
 
 
-### Current delivery evidence — sole Dockerfile and logging-source build fix
+### Sole Dockerfile and logging-source build fix checkpoint
 
 - [x] Completed the interrupted explicit cleanup: removed four alternate Dockerfiles, split YAML and two unused startup scripts. Root `Dockerfile`/`render.yaml` remain the only deployment path. Source, upstream credits/provenance, native voice and ownership tests are preserved. Updated active README/env template; older checkpoint filenames are historical, not current instructions.
 - [x] Real Render build now selects correct app but reports eight TS2307 logger imports. Added three RED regressions before fixes: source lost under Docker filtering, source-vs-runtime log filtering and extra Dockerfiles. Removed broad `**/logs`; runtime directories/files, secrets and generated artifacts stay excluded. No fake logger modules or compiler bypass.
 - [x] Reconstructed Docker-filtered bot source and ran actual compiler: old rules reproduce all eight exact missing modules; new rules typecheck successfully. Docker-compatible matcher is a dev-only Apache-2.0 dependency with zero runtime dependencies; production app/package locks unchanged. Tests check every pinned upstream bot/web source path; existing image/directory/privilege/signal tests now target retained full-app behavior.
 - [x] Root build/typecheck + 175 Node PASS; regular Python 21 PASS / 3 optional-native SKIP; Mongo 9 SKIP without target. No root lint script; inherited web lint remains unchanged. Docker engine unavailable, so full image/Nginx/native session/Render/live database/Telegram execution remains NOT RUN. No new Python isolated-native run for context-filtering/deployment-only changes.
 - [ ] Redeploy latest branch commit using sole root Dockerfile. No environment/credential changes required for these missing modules. Broader production, token-transport/auth/logging/recovery and native VC/multi-tenant integration gates remain unresolved.
+
+
+### Current delivery evidence — shutdown-fenced readiness
+
+- [x] Preflight detected recreated Git metadata at the initial commit. Compared all 378 remote tracked files byte-for-byte (identical), restored active-branch tracking/history without changing workspace contents, and reviewed all eight Markdown documents. Sole Dockerfile policy, supplied Render URL and source-context regression remain intact.
+- [x] Observed two behavioral RED regressions through actual local HTTP: a blocked healthy probe completed after shutdown but returned 200; rejected probe escaped the handler. Extracted the existing handler into the deployment helper, then fenced before/after await and converted probe failures to sanitized HTTP 503. No caching or late readiness restoration.
+- [x] Four local HTTP tests PASS (controlled downstream promises, not real Telegram/native processes). Root build/typecheck + 179 Node PASS, regular Python 21 PASS / 3 optional-native SKIP; Mongo 9 SKIP without target. No root lint script; inherited upstream lint unchanged. No Python/native rerun for this JS-only increment.
+- [ ] Actual Docker/Nginx/Render/database/Telegram acceptance and full image process-lifecycle/crash tests remain unverified without engine/services. HTTP readiness is not native cleanup, playback confirmation, bot-factory integration or production certification. Existing platform/VC/WebApp/security/recovery scope is retained.
